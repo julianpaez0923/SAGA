@@ -2,313 +2,585 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>SAGA | CARGO</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SAGA |COLOMBIA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
-        body { background: #020617; font-family: 'Inter', sans-serif; color: #f1f5f9; margin: 0; overflow: hidden; }
-        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
-        .neon-text { text-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        .ui-overlay { position: relative; z-index: 10; pointer-events: none; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; }
-        .ui-overlay * { pointer-events: auto; }
-        input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; border-radius: 8px !important; }
-        .btn-play { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); transition: all 0.3s; }
-        .btn-play:hover { transform: scale(1.1); box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
-        @keyframes pulse-border { 0% { border-color: rgba(59, 130, 246, 0.5); } 50% { border-color: rgba(59, 130, 246, 1); } 100% { border-color: rgba(59, 130, 246, 0.5); } }
-        .active-border { animation: pulse-border 2s infinite; border-width: 2px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&family=JetBrains+Mono:wght@400;800&display=swap');
+
+        :root {
+            --bg: #09090b;
+            --panel: rgba(24, 24, 27, 0.95);
+            --border: rgba(255, 255, 255, 0.1);
+            --primary: #3b82f6;
+            --accent: #f59e0b;
+        }
+
+        body { background: var(--bg); color: #e4e4e7; margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+        
+        /* UI Components */
+        .glass {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        input, select {
+            background: #27272a; border: 1px solid #3f3f46; color: white;
+            padding: 8px; border-radius: 6px; font-size: 12px; width: 100%; font-family: 'JetBrains Mono', monospace;
+            transition: 0.2s;
+        }
+        input:focus, select:focus { border-color: var(--primary); outline: none; }
+
+        .btn-action {
+            background: var(--primary); color: white; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 1px; font-size: 10px; padding: 12px; border-radius: 6px;
+            transition: all 0.2s; border: 1px solid #60a5fa;
+        }
+        .btn-action:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        .btn-action:active { transform: scale(0.98); }
+
+        /* UI Layout */
+        #canvas-layer { position: absolute; inset: 0; z-index: 1; }
+        #ui-layer { position: relative; z-index: 10; pointer-events: none; height: 100vh; display: flex; justify-content: space-between; padding: 20px; }
+        .pointer-auto { pointer-events: auto; }
+
+        /* AI Animación */
+        .processing::after {
+            content: ''; position: absolute; bottom: 0; left: 0; height: 2px; width: 100%;
+            background: var(--primary); animation: load 1s infinite linear;
+        }
+        @keyframes load { 0% { width: 0; opacity: 1; } 100% { width: 100%; opacity: 0; } }
     </style>
 </head>
-<body class="overflow-hidden">
+<body>
 
-    <div id="canvas-container"></div>
+    <div id="canvas-layer"></div>
 
-    <div class="ui-overlay">
-        <header class="flex justify-between items-start">
-            <div class="glass p-4 rounded-2xl border-l-4 border-blue-500 shadow-2xl">
-                <h1 style="font-family: 'Orbitron'" class="font-bold text-xl tracking-tighter neon-text">SAGA CARGO <span class="text-white">V1.2</span></h1>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <p class="text-[9px] uppercase tracking-widest text-slate-400 font-bold">FUSAGASUGA|COLOMBIA</p>
-                </div>
-            </div>
-            <button onclick="toggleMenu()" class="md:hidden glass w-12 h-12 rounded-full text-blue-400 flex items-center justify-center">
-                <i class="fas fa-bars"></i>
-            </button>
-        </header>
-
-        <div class="flex flex-col items-center gap-4 mb-6">
-            <div class="glass p-4 rounded-3xl shadow-2xl border border-white/5 flex items-center gap-6 min-w-[320px] md:min-w-[600px]">
-                <button id="playBtn" onclick="toggleAutoPlay()" class="btn-play w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg">
-                    <i id="playIcon" class="fas fa-play text-xl ml-1"></i>
-                </button>
-
-                <div class="flex-1 space-y-2">
-                    <div class="flex justify-between items-end">
-                        <span class="text-[10px] text-slate-500 font-bold uppercase">Progreso de Carga</span>
-                        <span id="counter" class="text-xs font-mono text-blue-400">0 / 0</span>
+    <div id="ui-layer">
+        <div class="w-72 flex flex-col gap-4 pointer-auto">
+            <div class="glass p-5 rounded-xl border-l-4 border-blue-500">
+                <h1 class="font-bold text-lg tracking-tight flex items-center gap-2">
+                    <i class="fas fa-layer-group text-blue-500"></i> SAGA CARGO
+                </h1>
+                <p class="text-[10px] text-gray-400 mono mt-1">COLOMBIA</p>
+                
+                <div id="ai-feedback" class="mt-4 p-3 bg-blue-900/20 rounded border border-blue-500/30 hidden">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i class="fas fa-microchip text-blue-400 text-xs"></i>
+                        <span class="text-[9px] font-bold text-blue-400 uppercase">Análisis IA</span>
                     </div>
-                    <input id="loadSlider" type="range" value="0" min="0" max="100" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" oninput="manualControl(this.value)">
+                    <p id="ai-text" class="text-[10px] leading-tight text-gray-300">Calculando...</p>
                 </div>
-
-                <button onclick="resetApp()" class="text-slate-500 hover:text-white transition p-2"><i class="fas fa-sync-alt"></i></button>
             </div>
+
+            <div class="glass p-4 rounded-xl space-y-3">
+                <div class="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
+                    <span>Eficiencia Volumétrica</span>
+                    <span id="stat-eff" class="text-white mono">0%</span>
+                </div>
+                <div class="h-1 bg-gray-700 rounded-full overflow-hidden">
+                    <div id="bar-eff" class="h-full bg-gradient-to-r from-blue-500 to-emerald-400 w-0 transition-all duration-500"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                    <div><span class="text-[9px] block text-gray-500">CAJAS</span><span id="stat-count" class="mono text-sm">0</span></div>
+                    <div class="text-right"><span class="text-[9px] block text-gray-500">PESO</span><span id="stat-weight" class="mono text-sm">0 kg</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-auto">
+            <div class="glass px-6 py-3 rounded-full flex items-center gap-4 shadow-2xl">
+                <button onclick="toggleSim()" id="btn-sim" class="flex flex-col items-center gap-1 group w-16">
+                    <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center border border-gray-600 group-hover:border-blue-500 transition">
+                        <i class="fas fa-play text-[10px] text-white"></i>
+                    </div>
+                    <span class="text-[8px] font-bold uppercase text-gray-400">Física</span>
+                </button>
+                <div class="w-px h-8 bg-white/10"></div>
+                <button onclick="runAutoAI()" class="flex flex-col items-center gap-1 group w-16">
+                    <div class="w-10 h-10 rounded-full bg-emerald-900/40 flex items-center justify-center border border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] group-hover:scale-110 transition">
+                        <i class="fas fa-brain text-sm"></i>
+                    </div>
+                    <span class="text-[8px] font-bold uppercase text-emerald-400">Auto-Opt</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="w-80 glass h-full rounded-l-xl p-5 overflow-y-auto pointer-auto custom-scroll">
+            <h2 class="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4 border-b border-white/10 pb-2">Configuración</h2>
+
+            <div class="space-y-3 mb-6">
+                <label class="text-[10px] font-bold text-gray-500 uppercase">1. Espacio de Carga</label>
+                <select id="env-type" onchange="setEnvPreset()">
+                    <option value="truck">🚛 Camión (2.4 x 2.6 x 12m)</option>
+                    <option value="cnt20">🚢 Contenedor 20'</option>
+                    <option value="cnt40">🚢 Contenedor 40' HC</option>
+                    <option value="pallet">🪵 Pallet Americano (1.2x1.0)</option>
+                    <option value="custom">🛠️ Personalizado</option>
+                </select>
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="number" id="env-w" value="240" placeholder="W">
+                    <input type="number" id="env-h" value="260" placeholder="H">
+                    <input type="number" id="env-d" value="1200" placeholder="L">
+                </div>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <label class="text-[10px] font-bold text-gray-500 uppercase">2. Unidad (cm / kg)</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <input type="number" id="box-w" value="40" class="border-blue-500/50">
+                    <input type="number" id="box-h" value="40" class="border-blue-500/50">
+                    <input type="number" id="box-d" value="60" class="border-blue-500/50">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" id="box-mass" value="15" placeholder="Kg">
+                    <input type="number" id="box-qty" value="350" placeholder="Max Qty">
+                </div>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <label class="text-[10px] font-bold text-gray-500 uppercase">3. Algoritmo de Apilado</label>
+                <select id="algo-mode" class="text-yellow-400 font-bold">
+                    <option value="column">📦 Columnar (Simple)</option>
+                    <option value="brick">🧱 Traba (Ladrillo)</option>
+                    <option value="pinwheel">🌀 Molinillo (Pinwheel)</option>
+                    <option value="honeycomb">🐝 Panal (Honeycomb)</option>
+                    <option value="chimney">🗼 Torre Hueca (Chimney)</option>
+                    <option value="pyramid">🪜 Piramidal (Estabilidad)</option>
+                </select>
+            </div>
+
+            <button onclick="renderScenario()" class="btn-action w-full relative overflow-hidden group">
+                <span class="relative z-10">GENERAR CARGA</span>
+                <div class="absolute inset-0 bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+            </button>
         </div>
     </div>
 
-    <aside id="sidebar" class="fixed right-0 top-0 h-full w-80 md:w-96 glass border-l border-white/10 p-6 z-50 transform translate-x-full md:translate-x-0 transition-transform duration-500 overflow-y-auto">
-        <div class="flex justify-between items-center mb-8">
-            <h2 style="font-family: 'Orbitron'" class="text-sm font-bold tracking-widest uppercase">Panel de Control</h2>
-            <button onclick="toggleMenu()" class="md:hidden text-slate-400 text-2xl">&times;</button>
-        </div>
-
-        <div class="space-y-6">
-            <div class="space-y-3">
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Configuración de Espacio</label>
-                <select id="mode" class="w-full p-3 text-sm" onchange="startSim()">
-                    <option value="truck">🚛 Tractocamión (Mula)</option>
-                    <option value="rack">🏗️ Estantería Libre</option>
-                </select>
-                <div class="grid grid-cols-3 gap-2">
-                    <input id="cw" type="number" value="240" class="p-2 text-center" title="Ancho">
-                    <input id="ch" type="number" value="260" class="p-2 text-center" title="Alto">
-                    <input id="cd" type="number" value="1200" class="p-2 text-center" title="Largo">
-                </div>
-            </div>
-
-            <div class="space-y-3">
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Dimensiones de la Caja</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <input id="bw" type="number" value="40" class="p-2 text-center">
-                    <input id="bh" type="number" value="40" class="p-2 text-center">
-                    <input id="bd" type="number" value="40" class="p-2 text-center">
-                </div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Cantidad Total</label>
-                <input id="bq" type="number" value="500" class="w-full p-3">
-            </div>
-
-            <button onclick="startSim()" class="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-xs tracking-widest transition-all shadow-lg shadow-blue-900/40 uppercase">
-                Calcular y Renderizar
-            </button>
-
-            <div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 space-y-4">
-                <div class="flex justify-between text-xs">
-                    <span class="text-slate-500">Ocupación:</span>
-                    <span id="effText" class="text-emerald-400 font-bold">0%</span>
-                </div>
-                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div id="effBar" class="h-full bg-blue-500 transition-all duration-1000" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-    </aside>
-
 <script>
-let scene, camera, renderer, controls, mainGroup;
-let boxMeshes = [];
-let isPlaying = false;
-let playInterval;
+/**
+ * SAGA CARGO
+ * Sistema avanzado de CARGA
+ */
 
-function initCore() {
+// --- VARIABLES GLOBALES ---
+let scene, camera, renderer, controls, world;
+let meshes = [], bodies = [];
+let isSimulating = false;
+let occupiedBoxes = []; // Array para guardar BoundingBoxes [minX, maxX, minY, maxY, minZ, maxZ]
+
+// --- INICIALIZACIÓN ---
+function init() {
+    // 1. Scene
+    const container = document.getElementById('canvas-layer');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020617);
-    scene.fog = new THREE.Fog(0x020617, 500, 5000);
+    scene.background = new THREE.Color(0x09090b);
+    scene.fog = new THREE.Fog(0x09090b, 500, 2000);
 
-    const container = document.getElementById('canvas-container');
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
-    camera.position.set(1200, 800, 1500);
+    // 2. Camera
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 1, 5000);
+    camera.position.set(500, 600, 800);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    // 3. Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(renderer.domElement);
 
+    // 4. Controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    
+    // 5. Physics
+    world = new CANNON.World();
+    world.gravity.set(0, -9.82, 0);
+    world.broadphase = new CANNON.SAPBroadphase(world);
 
-    // Luces mejoradas
-    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1);
-    mainLight.position.set(500, 1000, 750);
-    scene.add(mainLight);
+    // 6. Lights & Floor
+    setupSceneEssentials();
+    
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-    const fillLight = new THREE.PointLight(0x3b82f6, 0.5);
-    fillLight.position.set(-500, 500, -500);
-    scene.add(fillLight);
-
-    // Grid de suelo industrial
-    const grid = new THREE.GridHelper(5000, 60, 0x1e293b, 0x0f172a);
-    grid.position.y = -140;
-    scene.add(grid);
-
-    window.addEventListener('resize', onWindowResize);
-    startSim();
+    // Render loop
     animate();
+    
+    // Primer render
+    renderScenario();
 }
 
-function startSim() {
-    stopAutoPlay();
-    const CW = +cw.value, CH = +ch.value, CD = +cd.value;
-    const BW = +bw.value, BH = +bh.value, BD = +bd.value;
-    const TOTAL = +bq.value;
+// --- GRÁFICOS & ENTORNO ---
+function setupSceneEssentials() {
+    // Luces
+    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambient);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(300, 1000, 500);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
 
-    if(mainGroup) scene.remove(mainGroup);
-    mainGroup = new THREE.Group();
-    boxMeshes = [];
-
-    // --- DISEÑO DE LA MULA (TRACTOCAMIÓN) ---
-    if(document.getElementById('mode').value === 'truck') {
-        const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 });
-        const cabMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, metalness: 0.5, roughness: 0.2 }); // Color Llamativo
-        const plasticMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
-
-        // 1. Trailer (El contenedor transparente)
-        const trailerGeo = new THREE.BoxGeometry(CW, CH, CD);
-        const trailerMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.1, side: THREE.BackSide });
-        const trailer = new THREE.Mesh(trailerGeo, trailerMat);
-        mainGroup.add(trailer);
-        mainGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(trailerGeo), new THREE.LineBasicMaterial({ color: 0x3b82f6, opacity: 0.2, transparent: true })));
-
-        // 2. Cabezote (Tractor)
-        const cabGroup = new THREE.Group();
-        // Base/Motor
-        const engine = new THREE.Mesh(new THREE.BoxGeometry(CW*0.9, CH*0.6, 180), cabMat);
-        engine.position.set(0, -CH*0.2, -CD/2 - 180);
-        cabGroup.add(engine);
-        // Cabina principal
-        const cabMain = new THREE.Mesh(new THREE.BoxGeometry(CW*0.9, CH*0.9, 140), cabMat);
-        cabMain.position.set(0, -CH*0.05, -CD/2 - 90);
-        cabGroup.add(cabMain);
-        // Parrilla frontal (Cromo)
-        const grill = new THREE.Mesh(new THREE.BoxGeometry(CW*0.7, CH*0.4, 10), metalMat);
-        grill.position.set(0, -CH*0.2, -CD/2 - 275);
-        cabGroup.add(grill);
-        // Chimeneas de escape
-        const pipeGeo = new THREE.CylinderGeometry(8, 8, CH, 16);
-        [-1, 1].forEach(side => {
-            const pipe = new THREE.Mesh(pipeGeo, metalMat);
-            pipe.position.set(side * (CW/2 + 5), CH/2 - 80, -CD/2 - 150);
-            cabGroup.add(pipe);
-        });
-        mainGroup.add(cabGroup);
-
-        // 3. Chasis y Ruedas (10 Ruedas)
-        const wheelGeo = new THREE.CylinderGeometry(45, 45, 35, 24);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
-        const wheelPos = [-CD/2 - 180, -CD/2 + 50, -CD/2 + 120, CD/2 - 120, CD/2 - 50];
-        wheelPos.forEach(z => {
-            [-1, 1].forEach(side => {
-                const w = new THREE.Mesh(wheelGeo, wheelMat);
-                w.rotation.z = Math.PI/2;
-                w.position.set(side * (CW/2), -CH/2 - 50, z);
-                mainGroup.add(w);
-            });
-        });
-    } else {
-        // Estante Industrial Estilizado
-        const rackMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 });
-        [[-1,-1], [1,-1], [-1,1], [1,1]].forEach(p => {
-            const post = new THREE.Mesh(new THREE.BoxGeometry(15, CH, 15), rackMat);
-            post.position.set(p[0]*(CW/2), 0, p[1]*(CD/2));
-            mainGroup.add(post);
-        });
+    // Suelo Realista Procedural
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#18181b'; ctx.fillRect(0,0,512,512);
+    // Noise
+    for(let i=0; i<50000; i++){
+        ctx.fillStyle = Math.random()>0.5 ? '#27272a' : '#09090b';
+        ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
     }
+    const floorTex = new THREE.CanvasTexture(canvas);
+    floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+    floorTex.repeat.set(10,10);
+    
+    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-    // --- LOGICA DE CAJAS ---
+    // Suelo Físico
+    const groundBody = new CANNON.Body({ mass: 0 });
+    groundBody.addShape(new CANNON.Plane());
+    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI/2);
+    world.addBody(groundBody);
+}
+
+// --- LÓGICA DE DETECCIÓN DE COLISIONES (EL CEREBRO) ---
+function isSpaceFree(x, y, z, w, h, d) {
+    // Margen de seguridad minúsculo para evitar "z-fighting" visual
+    const margin = 0.1; 
+    
+    const minX = x - w/2 + margin;
+    const maxX = x + w/2 - margin;
+    const minY = y - h/2 + margin;
+    const maxY = y + h/2 - margin;
+    const minZ = z - d/2 + margin;
+    const maxZ = z + d/2 - margin;
+
+    for (let box of occupiedBoxes) {
+        // AABB Collision Test
+        if (minX < box.maxX && maxX > box.minX &&
+            minY < box.maxY && maxY > box.minY &&
+            minZ < box.maxZ && maxZ > box.minZ) {
+            return false; // COLISIÓN DETECTADA
+        }
+    }
+    return true; // ESPACIO LIBRE
+}
+
+function registerBox(x, y, z, w, h, d) {
+    occupiedBoxes.push({
+        minX: x - w/2, maxX: x + w/2,
+        minY: y - h/2, maxY: y + h/2,
+        minZ: z - d/2, maxZ: z + d/2
+    });
+}
+
+// --- GENERADOR DE CARGA ---
+function renderScenario() {
+    // 1. Limpieza
+    meshes.forEach(m => scene.remove(m));
+    bodies.forEach(b => world.removeBody(b));
+    meshes = []; bodies = []; occupiedBoxes = [];
+    isSimulating = false;
+
+    // 2. Parámetros
+    const ENV = {
+        w: +document.getElementById('env-w').value,
+        h: +document.getElementById('env-h').value,
+        d: +document.getElementById('env-d').value
+    };
+    const BOX = {
+        w: +document.getElementById('box-w').value,
+        h: +document.getElementById('box-h').value,
+        d: +document.getElementById('box-d').value,
+        mass: +document.getElementById('box-mass').value,
+        max: +document.getElementById('box-qty').value
+    };
+    const ALGO = document.getElementById('algo-mode').value;
+
+    // 3. Visualizar Contenedor (Líneas)
+    const containerGeo = new THREE.BoxGeometry(ENV.w, ENV.h, ENV.d);
+    const edges = new THREE.EdgesGeometry(containerGeo);
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x3b82f6, opacity: 0.3, transparent: true }));
+    line.position.y = ENV.h/2;
+    meshes.push(line);
+    scene.add(line);
+
+    // 4. Material Procedural Cartón
+    const boxMat = createCardboardMat();
+
+    // 5. Algoritmo Maestro
     let count = 0;
-    const nx = Math.floor(CW/BW), ny = Math.floor(CH/BH), nz = Math.floor(CD/BD);
-    for(let z=0; z<nz; z++) {
-        for(let y=0; y<ny; y++) {
-            for(let x=0; x<nx; x++) {
-                if(count < TOTAL) {
-                    const box = new THREE.Mesh(
-                        new THREE.BoxGeometry(BW-2, BH-2, BD-2),
-                        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 })
-                    );
-                    box.position.set(-CW/2 + x*BW + BW/2, -CH/2 + y*BH + BH/2, -CD/2 + z*BD + BD/2);
-                    box.visible = false;
-                    box.userData.index = count;
-                    mainGroup.add(box);
-                    boxMeshes.push(box);
-                    count++;
+    
+    // Helper para intentar colocar caja
+    const tryAddBox = (cx, cy, cz, rotation) => {
+        if(count >= BOX.max) return false;
+
+        // Determinar dimensiones rotadas
+        let rw = (Math.abs(rotation) > 0.1) ? BOX.d : BOX.w;
+        let rd = (Math.abs(rotation) > 0.1) ? BOX.w : BOX.d;
+        let rh = BOX.h;
+
+        // Limites del contenedor
+        if(Math.abs(cx) + rw/2 > ENV.w/2) return false;
+        if(Math.abs(cz) + rd/2 > ENV.d/2) return false;
+        if(cy + rh/2 > ENV.h) return false;
+
+        // Check Colisiones
+        if (!isSpaceFree(cx, cy, cz, rw, rh, rd)) return false;
+
+        // Éxito: Crear
+        createBox(cx, cy, cz, rw, rh, rd, rotation, BOX.mass, boxMat);
+        registerBox(cx, cy, cz, rw, rh, rd);
+        count++;
+        return true;
+    };
+
+    // --- ESTRATEGIAS DE LOOP ---
+    const startX = -ENV.w/2;
+    const startZ = -ENV.d/2;
+    const layers = Math.floor(ENV.h / BOX.h);
+
+    for (let l = 0; l < layers; l++) {
+        let py = l * BOX.h + BOX.h/2;
+        
+        // Optimización básica para loops
+        let stepX = BOX.w;
+        let stepZ = BOX.d;
+        
+        if (ALGO === 'column') {
+            // Simple Grid
+            for(let x = startX + BOX.w/2; x < ENV.w/2; x += BOX.w) {
+                for(let z = startZ + BOX.d/2; z < ENV.d/2; z += BOX.d) {
+                    tryAddBox(x, py, z, 0);
+                }
+            }
+        }
+        else if (ALGO === 'brick') {
+            // Offset rows
+            for(let z = startZ + BOX.d/2; z < ENV.d/2; z += BOX.d) {
+                let rowOffset = (l % 2 === 0) ? 0 : BOX.w/2; // Alternar offset por capa
+                if(ALGO === 'honeycomb') rowOffset = 0; // Placeholder logic
+                
+                for(let x = startX + BOX.w/2 + rowOffset; x < ENV.w/2; x += BOX.w) {
+                    tryAddBox(x, py, z, 0);
+                }
+            }
+        }
+        else if (ALGO === 'pinwheel') {
+            // Complejo: Crear bloques de 4 girados
+            // Patrón Pinwheel Ideal: 4 cajas rodeando un centro
+            // Simplificación: Alternar orientación en cuadrícula
+            let unitSize = Math.max(BOX.w, BOX.d);
+            for(let x = startX + unitSize/2; x < ENV.w/2; x += unitSize) {
+                for(let z = startZ + unitSize/2; z < ENV.d/2; z += unitSize) {
+                    // Decidir rotación basada en paridad de coordenadas
+                    // Esto crea un patrón de tejido
+                    let rot = 0;
+                    let gridX = Math.round((x - startX)/unitSize);
+                    let gridZ = Math.round((z - startZ)/unitSize);
+                    
+                    if ((gridX + gridZ) % 2 === 0) rot = Math.PI/2;
+                    if (l % 2 !== 0) rot = (rot === 0) ? Math.PI/2 : 0; // Invertir cada capa para trabar
+
+                    tryAddBox(x, py, z, rot);
+                }
+            }
+        }
+        else if (ALGO === 'honeycomb') {
+            // Hexagonal like packing (offsetting Z rows)
+            for(let x = startX + BOX.w/2; x < ENV.w/2; x += BOX.w) {
+                let colOffset = 0;
+                // Offset cada columna Z basado en X
+                let idx = Math.floor((x - startX)/BOX.w);
+                if (idx % 2 !== 0) colOffset = BOX.d/2;
+
+                for(let z = startZ + BOX.d/2 + colOffset; z < ENV.d/2; z += BOX.d) {
+                    tryAddBox(x, py, z, 0);
+                }
+            }
+        }
+        else if (ALGO === 'chimney') {
+            // Dejar hueco en el centro
+            for(let x = startX + BOX.w/2; x < ENV.w/2; x += BOX.w) {
+                for(let z = startZ + BOX.d/2; z < ENV.d/2; z += BOX.d) {
+                    // Si estamos en el 30% central, saltar
+                    if (Math.abs(x) < ENV.w * 0.15 && Math.abs(z) < ENV.d * 0.15) continue;
+                    tryAddBox(x, py, z, l % 2 === 0 ? 0 : Math.PI/2); // Rotar capas para estabilidad
+                }
+            }
+        }
+        else if (ALGO === 'pyramid') {
+            // Reducir área disponible conforme subimos
+            let shrink = l * (BOX.w/2); // Encoger media caja por nivel
+            for(let x = startX + BOX.w/2 + shrink; x < ENV.w/2 - shrink; x += BOX.w) {
+                for(let z = startZ + BOX.d/2 + shrink; z < ENV.d/2 - shrink; z += BOX.d) {
+                    tryAddBox(x, py, z, 0);
                 }
             }
         }
     }
 
-    scene.add(mainGroup);
+    // Stats
+    const totalVol = ENV.w * ENV.h * ENV.d;
+    const boxVol = BOX.w * BOX.h * BOX.d;
+    const usedVol = count * boxVol;
+    const eff = (usedVol / totalVol) * 100;
     
-    // UI Updates
-    loadSlider.max = boxMeshes.length;
-    loadSlider.value = 0;
-    document.getElementById('counter').innerText = `0 / ${boxMeshes.length}`;
-    const eff = ((count * (BW*BH*BD)) / (CW*CH*CD) * 100).toFixed(1);
-    document.getElementById('effText').innerText = eff + "%";
-    document.getElementById('effBar').style.width = eff + "%";
+    document.getElementById('stat-count').innerText = count;
+    document.getElementById('stat-weight').innerText = (count * BOX.mass).toFixed(0) + " kg";
+    document.getElementById('stat-eff').innerText = eff.toFixed(1) + "%";
+    document.getElementById('bar-eff').style.width = eff + "%";
 }
 
-// CONTROL DE REPRODUCCIÓN
-function toggleAutoPlay() {
-    isPlaying ? stopAutoPlay() : startAutoPlay();
-}
+function createBox(x, y, z, w, h, d, rot, mass, mat) {
+    // Visual
+    const geo = new THREE.BoxGeometry(w-0.5, h-0.5, d-0.5); // Gap visual pequeño
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.rotation.y = rot;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    meshes.push(mesh);
 
-function startAutoPlay() {
-    if(loadSlider.value >= boxMeshes.length) loadSlider.value = 0;
-    isPlaying = true;
-    document.getElementById('playIcon').className = "fas fa-pause";
-    document.getElementById('playBtn').classList.add('active-border');
+    // Physics Body (Dormido al inicio)
+    const shape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2));
+    const body = new CANNON.Body({ mass: mass });
+    body.addShape(shape);
+    body.position.set(x, y, z);
+    body.quaternion.setFromEuler(0, rot, 0);
+    body.sleep(); // Optimización clave
+    world.addBody(body);
+    bodies.push(body);
     
-    playInterval = setInterval(() => {
-        loadSlider.value = parseInt(loadSlider.value) + 1;
-        updateVisibility(loadSlider.value);
-        if(loadSlider.value >= boxMeshes.length) stopAutoPlay();
-    }, 30);
+    // Metadata para reset
+    body.initPos = new CANNON.Vec3(x,y,z);
+    body.initQuat = body.quaternion.clone();
 }
 
-function stopAutoPlay() {
-    isPlaying = false;
-    clearInterval(playInterval);
-    document.getElementById('playIcon').className = "fas fa-play";
-    document.getElementById('playBtn').classList.remove('active-border');
+function createCardboardMat() {
+    // Generar textura procedural rápida
+    const c = document.createElement('canvas'); c.width=64; c.height=64;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#b48a5f'; ctx.fillRect(0,0,64,64); // Marrón base
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'; 
+    for(let i=0;i<64;i+=4) ctx.fillRect(0,i,64,1); // Líneas corrugadas
+    
+    const tex = new THREE.CanvasTexture(c);
+    return new THREE.MeshStandardMaterial({ 
+        map: tex, 
+        roughness: 0.8,
+        color: new THREE.Color().setHSL(0.08, 0.5, 0.5 + Math.random()*0.1) // Variación leve de color
+    });
 }
 
-function updateVisibility(val) {
-    boxMeshes.forEach(b => b.visible = b.userData.index < val);
-    document.getElementById('counter').innerText = `${val} / ${boxMeshes.length}`;
+// --- UTILITIES & AI ---
+
+function setEnvPreset() {
+    const type = document.getElementById('env-type').value;
+    const w = document.getElementById('env-w');
+    const h = document.getElementById('env-h');
+    const d = document.getElementById('env-d');
+    
+    if(type === 'truck') { w.value=240; h.value=260; d.value=1200; }
+    if(type === 'cnt20') { w.value=235; h.value=239; d.value=590; }
+    if(type === 'cnt40') { w.value=235; h.value=269; d.value=1203; }
+    if(type === 'pallet') { w.value=120; h.value=160; d.value=100; } // Altura pallet cargado
 }
 
-function manualControl(val) {
-    stopAutoPlay();
-    updateVisibility(val);
+function runAutoAI() {
+    const feedback = document.getElementById('ai-feedback');
+    const text = document.getElementById('ai-text');
+    feedback.classList.remove('hidden');
+    text.innerHTML = "EJECUTANDO SIMULACIÓN HEURÍSTICA...";
+    
+    // Simular "Pensamiento"
+    setTimeout(() => {
+        const boxW = +document.getElementById('box-w').value;
+        const boxD = +document.getElementById('box-d').value;
+        
+        let bestMode = 'column';
+        let reason = "Eficiencia estándar.";
+
+        // Reglas Lógicas de Ingeniería
+        if (boxW === boxD) {
+            bestMode = 'brick';
+            reason = "Cajas cuadradas: Patrón 'Traba' maximiza estabilidad lateral.";
+        } else {
+            const ratio = Math.max(boxW, boxD) / Math.min(boxW, boxD);
+            if (ratio > 1.8) {
+                bestMode = 'pinwheel';
+                reason = "Cajas alargadas: Patrón 'Molinillo' crea amarre estructural.";
+            } else {
+                bestMode = 'column';
+                reason = "Dimensiones irregulares: Apilado directo para maximizar volumen.";
+            }
+        }
+        
+        // Aplicar
+        document.getElementById('algo-mode').value = bestMode;
+        text.innerHTML = `<span class="text-green-400 font-bold">MODO ${bestMode.toUpperCase()} SELECCIONADO:</span> ${reason}`;
+        renderScenario();
+    }, 800);
 }
 
-function resetApp() {
-    stopAutoPlay();
-    startSim();
-}
-
-function toggleMenu() {
-    document.getElementById('sidebar').classList.toggle('translate-x-full');
-}
-
-function onWindowResize() {
-    const container = document.getElementById('canvas-container');
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
+function toggleSim() {
+    isSimulating = !isSimulating;
+    const btn = document.getElementById('btn-sim');
+    
+    if(isSimulating) {
+        bodies.forEach(b => b.wakeUp());
+        btn.querySelector('div').classList.replace('bg-gray-800', 'bg-blue-600');
+    } else {
+        // Reset Physics
+        bodies.forEach(b => {
+            b.position.copy(b.initPos);
+            b.quaternion.copy(b.initQuat);
+            b.velocity.set(0,0,0);
+            b.angularVelocity.set(0,0,0);
+            b.sleep();
+        });
+        btn.querySelector('div').classList.replace('bg-blue-600', 'bg-gray-800');
+    }
 }
 
 function animate() {
     requestAnimationFrame(animate);
+    if(isSimulating) {
+        world.step(1/60);
+        for(let i=0; i<meshes.length; i++){
+            if(bodies[i]) {
+                meshes[i].position.copy(bodies[i].position);
+                meshes[i].quaternion.copy(bodies[i].quaternion);
+            }
+        }
+    }
     controls.update();
     renderer.render(scene, camera);
 }
 
-initCore();
+init();
 </script>
 </body>
 </html>
