@@ -2,99 +2,125 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>SAGA CARGO | COLOMBIA</title>
+    <title>SAGA | CARGO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
         body { background: #020617; font-family: 'Inter', sans-serif; color: #f1f5f9; margin: 0; overflow: hidden; }
-        .glass { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; font-size: 14px !important; }
-        /* Scrollbar styling */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        /* Fix for mobile height */
-        .h-screen-safe { height: 100vh; height: -webkit-fill-available; }
+        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
+        .neon-text { text-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .ui-overlay { position: relative; z-index: 10; pointer-events: none; height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem; }
+        .ui-overlay * { pointer-events: auto; }
+        input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; border-radius: 8px !important; }
+        .btn-play { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); transition: all 0.3s; }
+        .btn-play:hover { transform: scale(1.1); box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+        @keyframes pulse-border { 0% { border-color: rgba(59, 130, 246, 0.5); } 50% { border-color: rgba(59, 130, 246, 1); } 100% { border-color: rgba(59, 130, 246, 0.5); } }
+        .active-border { animation: pulse-border 2s infinite; border-width: 2px; }
     </style>
 </head>
-<body class="h-screen-safe flex flex-col md:flex-row overflow-hidden">
+<body class="overflow-hidden">
 
-    <aside id="sidebar" class="w-full md:w-80 lg:w-96 glass flex flex-col z-30 transition-all duration-300 max-h-[40vh] md:max-h-full border-b md:border-b-0 md:border-r border-white/10">
-        <div class="p-4 flex justify-between items-center">
-            <div>
-                <h1 class="font-bold text-blue-400 text-lg tracking-tight">SAGA <span class="text-white font-light">CARGO</span></h1>
-                <p class="text-[10px] text-slate-500 uppercase font-bold">COLOMBIA</p>
+    <div id="canvas-container"></div>
+
+    <div class="ui-overlay">
+        <header class="flex justify-between items-start">
+            <div class="glass p-4 rounded-2xl border-l-4 border-blue-500 shadow-2xl">
+                <h1 style="font-family: 'Orbitron'" class="font-bold text-xl tracking-tighter neon-text">SAGA CARGO <span class="text-white">V1.2</span></h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <p class="text-[9px] uppercase tracking-widest text-slate-400 font-bold">FUSAGASUGA|COLOMBIA</p>
+                </div>
             </div>
-            <button onclick="toggleSidebar()" class="md:hidden text-white p-2">
-                <i id="toggleIcon" class="fas fa-chevron-down"></i>
+            <button onclick="toggleMenu()" class="md:hidden glass w-12 h-12 rounded-full text-blue-400 flex items-center justify-center">
+                <i class="fas fa-bars"></i>
             </button>
+        </header>
+
+        <div class="flex flex-col items-center gap-4 mb-6">
+            <div class="glass p-4 rounded-3xl shadow-2xl border border-white/5 flex items-center gap-6 min-w-[320px] md:min-w-[600px]">
+                <button id="playBtn" onclick="toggleAutoPlay()" class="btn-play w-14 h-14 rounded-full flex items-center justify-center text-white shadow-lg">
+                    <i id="playIcon" class="fas fa-play text-xl ml-1"></i>
+                </button>
+
+                <div class="flex-1 space-y-2">
+                    <div class="flex justify-between items-end">
+                        <span class="text-[10px] text-slate-500 font-bold uppercase">Progreso de Carga</span>
+                        <span id="counter" class="text-xs font-mono text-blue-400">0 / 0</span>
+                    </div>
+                    <input id="loadSlider" type="range" value="0" min="0" max="100" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" oninput="manualControl(this.value)">
+                </div>
+
+                <button onclick="resetApp()" class="text-slate-500 hover:text-white transition p-2"><i class="fas fa-sync-alt"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <aside id="sidebar" class="fixed right-0 top-0 h-full w-80 md:w-96 glass border-l border-white/10 p-6 z-50 transform translate-x-full md:translate-x-0 transition-transform duration-500 overflow-y-auto">
+        <div class="flex justify-between items-center mb-8">
+            <h2 style="font-family: 'Orbitron'" class="text-sm font-bold tracking-widest uppercase">Panel de Control</h2>
+            <button onclick="toggleMenu()" class="md:hidden text-slate-400 text-2xl">&times;</button>
         </div>
 
-        <div id="sidebarContent" class="p-4 space-y-5 overflow-y-auto flex-1">
-            <section class="space-y-3">
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Espacio de Carga</label>
-                <select id="mode" class="w-full p-2 rounded-lg mb-2">
-                    <option value="truck">🚛 Camión / Contenedor</option>
-                    <option value="rack">🏗️ Estante Industrial</option>
+        <div class="space-y-6">
+            <div class="space-y-3">
+                <label class="text-[10px] font-bold text-slate-500 uppercase">Configuración de Espacio</label>
+                <select id="mode" class="w-full p-3 text-sm" onchange="startSim()">
+                    <option value="truck">🚛 Tractocamión (Mula)</option>
+                    <option value="rack">🏗️ Estantería Libre</option>
                 </select>
                 <div class="grid grid-cols-3 gap-2">
-                    <input id="cw" type="number" value="240" placeholder="Ancho" class="p-2 rounded">
-                    <input id="ch" type="number" value="260" placeholder="Alto" class="p-2 rounded">
-                    <input id="cd" type="number" value="600" placeholder="Fondo" class="p-2 rounded">
+                    <input id="cw" type="number" value="240" class="p-2 text-center" title="Ancho">
+                    <input id="ch" type="number" value="260" class="p-2 text-center" title="Alto">
+                    <input id="cd" type="number" value="1200" class="p-2 text-center" title="Largo">
                 </div>
-            </section>
-
-            <section class="space-y-3">
-                <div class="flex justify-between items-center">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Cajas (Multi-SKU)</label>
-                    <button onclick="addSKU()" class="text-[10px] bg-blue-600 px-2 py-1 rounded text-white hover:bg-blue-500">+ Agregar</button>
-                </div>
-                <div id="skuList" class="space-y-2">
-                    </div>
-            </section>
-
-            <button onclick="calculate()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-900/40">
-                <i class="fas fa-play mr-2"></i> CALCULAR ACOMODO
-            </button>
-        </div>
-
-        <div class="p-4 bg-slate-900/50 border-t border-white/5 grid grid-cols-2 gap-2">
-            <div class="text-center p-2 rounded bg-slate-800/50">
-                <p class="text-[9px] text-slate-500 uppercase">Eficiencia</p>
-                <p id="efficiency" class="font-bold text-emerald-400 text-sm">0%</p>
             </div>
-            <div class="text-center p-2 rounded bg-slate-800/50">
-                <p class="text-[9px] text-slate-500 uppercase">Total Cajas</p>
-                <p id="fitInfo" class="font-bold text-blue-400 text-sm">0</p>
+
+            <div class="space-y-3">
+                <label class="text-[10px] font-bold text-slate-500 uppercase">Dimensiones de la Caja</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <input id="bw" type="number" value="40" class="p-2 text-center">
+                    <input id="bh" type="number" value="40" class="p-2 text-center">
+                    <input id="bd" type="number" value="40" class="p-2 text-center">
+                </div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase">Cantidad Total</label>
+                <input id="bq" type="number" value="500" class="w-full p-3">
+            </div>
+
+            <button onclick="startSim()" class="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-xs tracking-widest transition-all shadow-lg shadow-blue-900/40 uppercase">
+                Calcular y Renderizar
+            </button>
+
+            <div class="bg-slate-900/50 p-4 rounded-2xl border border-white/5 space-y-4">
+                <div class="flex justify-between text-xs">
+                    <span class="text-slate-500">Ocupación:</span>
+                    <span id="effText" class="text-emerald-400 font-bold">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div id="effBar" class="h-full bg-blue-500 transition-all duration-1000" style="width: 0%"></div>
+                </div>
             </div>
         </div>
     </aside>
 
-    <main class="flex-1 relative bg-[#05070a]">
-        <div id="canvas" class="w-full h-full"></div>
-        
-        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 glass px-4 py-3 rounded-2xl flex items-center gap-4 min-w-[280px] shadow-2xl">
-            <button onclick="resetAnimate()" class="text-slate-400"><i class="fas fa-undo"></i></button>
-            <input id="loadSlider" type="range" min="0" max="100" value="0" class="flex-1 h-1 bg-slate-700 rounded-lg appearance-none accent-blue-500" oninput="scrub(this.value)">
-            <span id="stepCounter" class="text-[10px] font-mono text-blue-400">0/0</span>
-        </div>
-    </main>
-
 <script>
-let scene, camera, renderer, controls, boxGroup;
-let skus = [{ id: 1, w: 40, h: 40, d: 40, q: 50, color: 0x3b82f6 }];
-let packedBoxes = [];
+let scene, camera, renderer, controls, mainGroup;
+let boxMeshes = [];
+let isPlaying = false;
+let playInterval;
 
-function init() {
+function initCore() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x05070a);
-    
-    const container = document.getElementById('canvas');
+    scene.background = new THREE.Color(0x020617);
+    scene.fog = new THREE.Fog(0x020617, 500, 5000);
+
+    const container = document.getElementById('canvas-container');
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
-    camera.position.set(500, 500, 800);
+    camera.position.set(1200, 800, 1500);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -104,187 +130,176 @@ function init() {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.6);
-    sun.position.set(500, 1000, 500);
-    scene.add(sun);
+    // Luces mejoradas
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+    mainLight.position.set(500, 1000, 750);
+    scene.add(mainLight);
 
-    renderSKUInputs();
+    const fillLight = new THREE.PointLight(0x3b82f6, 0.5);
+    fillLight.position.set(-500, 500, -500);
+    scene.add(fillLight);
+
+    // Grid de suelo industrial
+    const grid = new THREE.GridHelper(5000, 60, 0x1e293b, 0x0f172a);
+    grid.position.y = -140;
+    scene.add(grid);
+
     window.addEventListener('resize', onWindowResize);
-    calculate();
+    startSim();
+    animate();
 }
 
-function onWindowResize() {
-    const container = document.getElementById('canvas');
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
-}
-
-function toggleSidebar() {
-    const content = document.getElementById('sidebarContent');
-    const icon = document.getElementById('toggleIcon');
-    const sidebar = document.getElementById('sidebar');
-    
-    if (content.classList.contains('hidden')) {
-        content.classList.remove('hidden');
-        sidebar.style.maxHeight = '100vh';
-        icon.className = 'fas fa-chevron-up';
-    } else {
-        content.classList.add('hidden');
-        sidebar.style.maxHeight = '60px';
-        icon.className = 'fas fa-chevron-down';
-    }
-}
-
-function addSKU() {
-    skus.push({ id: Date.now(), w: 40, h: 40, d: 40, q: 10, color: Math.random() * 0xffffff });
-    renderSKUInputs();
-}
-
-function renderSKUInputs() {
-    const list = document.getElementById('skuList');
-    list.innerHTML = '';
-    skus.forEach((sku, idx) => {
-        const div = document.createElement('div');
-        div.className = 'p-3 rounded bg-slate-800/50 border border-white/5 space-y-2';
-        div.innerHTML = `
-            <div class="flex justify-between items-center text-[10px] font-bold">
-                <span style="color: #${new THREE.Color(sku.color).getHexString()}">SKU #${idx+1}</span>
-                <button onclick="removeSKU(${sku.id})" class="text-red-400 hover:text-red-300">ELIMINAR</button>
-            </div>
-            <div class="grid grid-cols-4 gap-1">
-                <input type="number" value="${sku.w}" onchange="updateSKU(${sku.id},'w',this.value)" placeholder="W">
-                <input type="number" value="${sku.h}" onchange="updateSKU(${sku.id},'h',this.value)" placeholder="H">
-                <input type="number" value="${sku.d}" onchange="updateSKU(${sku.id},'d',this.value)" placeholder="D">
-                <input type="number" value="${sku.q}" onchange="updateSKU(${sku.id},'q',this.value)" class="!bg-blue-900/30">
-            </div>
-        `;
-        list.appendChild(div);
-    });
-}
-
-function updateSKU(id, field, val) {
-    const sku = skus.find(s => s.id === id);
-    if(sku) sku[field] = parseFloat(val);
-}
-
-function removeSKU(id) {
-    skus = skus.filter(s => s.id !== id);
-    renderSKUInputs();
-}
-
-// ALGORITMO DE EMPAQUETADO OPTIMIZADO 
-function calculate() {
+function startSim() {
+    stopAutoPlay();
     const CW = +cw.value, CH = +ch.value, CD = +cd.value;
-    packedBoxes = [];
-    
-    // Crear lista de cajas ordenadas por volumen (Heurística)
-    let items = [];
-    skus.forEach(sku => {
-        for(let i=0; i<sku.q; i++) items.push({...sku});
-    });
-    items.sort((a,b) => (b.w*b.h*b.d) - (a.w*a.h*a.d));
+    const BW = +bw.value, BH = +bh.value, BD = +bd.value;
+    const TOTAL = +bq.value;
 
-    let curX = 0, curY = 0, curZ = 0;
-    let maxH = 0, maxD = 0;
+    if(mainGroup) scene.remove(mainGroup);
+    mainGroup = new THREE.Group();
+    boxMeshes = [];
 
-    items.forEach(item => {
-        // ¿Cabe en la fila actual?
-        if (curX + item.w > CW) {
-            curX = 0;
-            curZ += maxD;
-            maxD = 0;
-        }
-        // ¿Cabe en el nivel actual?
-        if (curZ + item.d > CD) {
-            curZ = 0;
-            curX = 0;
-            curY += maxH;
-            maxH = 0;
-        }
+    // --- DISEÑO DE LA MULA (TRACTOCAMIÓN) ---
+    if(document.getElementById('mode').value === 'truck') {
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 });
+        const cabMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, metalness: 0.5, roughness: 0.2 }); // Color Llamativo
+        const plasticMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
 
-        if (curY + item.h <= CH) {
-            packedBoxes.push({
-                x: curX + item.w/2 - CW/2,
-                y: curY + item.h/2 - CH/2,
-                z: curZ + item.d/2 - CD/2,
-                w: item.w, h: item.h, d: item.d,
-                color: item.color
+        // 1. Trailer (El contenedor transparente)
+        const trailerGeo = new THREE.BoxGeometry(CW, CH, CD);
+        const trailerMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.1, side: THREE.BackSide });
+        const trailer = new THREE.Mesh(trailerGeo, trailerMat);
+        mainGroup.add(trailer);
+        mainGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(trailerGeo), new THREE.LineBasicMaterial({ color: 0x3b82f6, opacity: 0.2, transparent: true })));
+
+        // 2. Cabezote (Tractor)
+        const cabGroup = new THREE.Group();
+        // Base/Motor
+        const engine = new THREE.Mesh(new THREE.BoxGeometry(CW*0.9, CH*0.6, 180), cabMat);
+        engine.position.set(0, -CH*0.2, -CD/2 - 180);
+        cabGroup.add(engine);
+        // Cabina principal
+        const cabMain = new THREE.Mesh(new THREE.BoxGeometry(CW*0.9, CH*0.9, 140), cabMat);
+        cabMain.position.set(0, -CH*0.05, -CD/2 - 90);
+        cabGroup.add(cabMain);
+        // Parrilla frontal (Cromo)
+        const grill = new THREE.Mesh(new THREE.BoxGeometry(CW*0.7, CH*0.4, 10), metalMat);
+        grill.position.set(0, -CH*0.2, -CD/2 - 275);
+        cabGroup.add(grill);
+        // Chimeneas de escape
+        const pipeGeo = new THREE.CylinderGeometry(8, 8, CH, 16);
+        [-1, 1].forEach(side => {
+            const pipe = new THREE.Mesh(pipeGeo, metalMat);
+            pipe.position.set(side * (CW/2 + 5), CH/2 - 80, -CD/2 - 150);
+            cabGroup.add(pipe);
+        });
+        mainGroup.add(cabGroup);
+
+        // 3. Chasis y Ruedas (10 Ruedas)
+        const wheelGeo = new THREE.CylinderGeometry(45, 45, 35, 24);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
+        const wheelPos = [-CD/2 - 180, -CD/2 + 50, -CD/2 + 120, CD/2 - 120, CD/2 - 50];
+        wheelPos.forEach(z => {
+            [-1, 1].forEach(side => {
+                const w = new THREE.Mesh(wheelGeo, wheelMat);
+                w.rotation.z = Math.PI/2;
+                w.position.set(side * (CW/2), -CH/2 - 50, z);
+                mainGroup.add(w);
             });
-            curX += item.w;
-            maxH = Math.max(maxH, item.h);
-            maxD = Math.max(maxD, item.d);
-        }
-    });
-
-    update3D(CW, CH, CD);
-    updateStats(CW, CH, CD);
-}
-
-function update3D(CW, CH, CD) {
-    if(boxGroup) scene.remove(boxGroup);
-    boxGroup = new THREE.Group();
-
-    // Dibujar Contenedor [cite: 4, 5]
-    const containerGeo = new THREE.BoxGeometry(CW, CH, CD);
-    const containerMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, transparent: true, opacity: 0.1, side: THREE.BackSide });
-    boxGroup.add(new THREE.Mesh(containerGeo, containerMat));
-    
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(containerGeo), new THREE.LineBasicMaterial({ color: 0x334155 }));
-    boxGroup.add(edges);
-
-    // Si es estante, añadir postes [cite: 4]
-    if(document.getElementById('mode').value === 'rack') {
-        const postGeo = new THREE.BoxGeometry(10, CH, 10);
-        const postMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+        });
+    } else {
+        // Estante Industrial Estilizado
+        const rackMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 });
         [[-1,-1], [1,-1], [-1,1], [1,1]].forEach(p => {
-            const m = new THREE.Mesh(postGeo, postMat);
-            m.position.set((CW/2)*p[0], 0, (CD/2)*p[1]);
-            boxGroup.add(m);
+            const post = new THREE.Mesh(new THREE.BoxGeometry(15, CH, 15), rackMat);
+            post.position.set(p[0]*(CW/2), 0, p[1]*(CD/2));
+            mainGroup.add(post);
         });
     }
 
-    // Dibujar Cajas
-    packedBoxes.forEach((b, i) => {
-        const geo = new THREE.BoxGeometry(b.w-1, b.h-1, b.d-1);
-        const mat = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.6 });
-        const box = new THREE.Mesh(geo, mat);
-        box.position.set(b.x, b.y, b.z);
-        box.visible = false;
-        box.userData.index = i;
-        
-        const wire = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x000000, opacity: 0.2, transparent: true }));
-        box.add(wire);
-        boxGroup.add(box);
-    });
-
-    scene.add(boxGroup);
-    loadSlider.max = packedBoxes.length;
-    loadSlider.value = packedBoxes.length;
-    scrub(packedBoxes.length);
-}
-
-function scrub(val) {
-    boxGroup.children.forEach(child => {
-        if(child.userData.index !== undefined) {
-            child.visible = child.userData.index < val;
+    // --- LOGICA DE CAJAS ---
+    let count = 0;
+    const nx = Math.floor(CW/BW), ny = Math.floor(CH/BH), nz = Math.floor(CD/BD);
+    for(let z=0; z<nz; z++) {
+        for(let y=0; y<ny; y++) {
+            for(let x=0; x<nx; x++) {
+                if(count < TOTAL) {
+                    const box = new THREE.Mesh(
+                        new THREE.BoxGeometry(BW-2, BH-2, BD-2),
+                        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 })
+                    );
+                    box.position.set(-CW/2 + x*BW + BW/2, -CH/2 + y*BH + BH/2, -CD/2 + z*BD + BD/2);
+                    box.visible = false;
+                    box.userData.index = count;
+                    mainGroup.add(box);
+                    boxMeshes.push(box);
+                    count++;
+                }
+            }
         }
-    });
-    document.getElementById('stepCounter').innerText = `${val} / ${packedBoxes.length}`;
-}
+    }
 
-function resetAnimate() {
+    scene.add(mainGroup);
+    
+    // UI Updates
+    loadSlider.max = boxMeshes.length;
     loadSlider.value = 0;
-    scrub(0);
+    document.getElementById('counter').innerText = `0 / ${boxMeshes.length}`;
+    const eff = ((count * (BW*BH*BD)) / (CW*CH*CD) * 100).toFixed(1);
+    document.getElementById('effText').innerText = eff + "%";
+    document.getElementById('effBar').style.width = eff + "%";
 }
 
-function updateStats(CW, CH, CD) {
-    document.getElementById('fitInfo').innerText = packedBoxes.length;
-    let usedVol = 0;
-    packedBoxes.forEach(b => usedVol += b.w * b.h * b.d);
-    const eff = ((usedVol / (CW*CH*CD)) * 100).toFixed(1);
-    document.getElementById('efficiency').innerText = eff + "%";
+// CONTROL DE REPRODUCCIÓN
+function toggleAutoPlay() {
+    isPlaying ? stopAutoPlay() : startAutoPlay();
+}
+
+function startAutoPlay() {
+    if(loadSlider.value >= boxMeshes.length) loadSlider.value = 0;
+    isPlaying = true;
+    document.getElementById('playIcon').className = "fas fa-pause";
+    document.getElementById('playBtn').classList.add('active-border');
+    
+    playInterval = setInterval(() => {
+        loadSlider.value = parseInt(loadSlider.value) + 1;
+        updateVisibility(loadSlider.value);
+        if(loadSlider.value >= boxMeshes.length) stopAutoPlay();
+    }, 30);
+}
+
+function stopAutoPlay() {
+    isPlaying = false;
+    clearInterval(playInterval);
+    document.getElementById('playIcon').className = "fas fa-play";
+    document.getElementById('playBtn').classList.remove('active-border');
+}
+
+function updateVisibility(val) {
+    boxMeshes.forEach(b => b.visible = b.userData.index < val);
+    document.getElementById('counter').innerText = `${val} / ${boxMeshes.length}`;
+}
+
+function manualControl(val) {
+    stopAutoPlay();
+    updateVisibility(val);
+}
+
+function resetApp() {
+    stopAutoPlay();
+    startSim();
+}
+
+function toggleMenu() {
+    document.getElementById('sidebar').classList.toggle('translate-x-full');
+}
+
+function onWindowResize() {
+    const container = document.getElementById('canvas-container');
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
 }
 
 function animate() {
@@ -293,8 +308,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-init();
-animate();
+initCore();
 </script>
 </body>
 </html>
