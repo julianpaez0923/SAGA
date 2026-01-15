@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>LogiMaster PRO | Estante Real</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+
+<style>
+body{background:#f1f5f9;font-family:Segoe UI}
+.card{background:white;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.08)}
+</style>
+</head>
+
+<body class="h-screen overflow-hidden">
+
+<div class="flex flex-col lg:flex-row h-full">
+
+<!-- PANEL -->
+<aside class="lg:w-96 w-full p-4 space-y-4 overflow-y-auto">
+
+<div class="card p-4">
+<h2 class="font-bold text-lg mb-2">📦 Configuración</h2>
+
+<select id="mode" class="p-2 border rounded w-full mb-2">
+<option value="rack">Estante</option>
+<option value="truck">Camión / Mula</option>
+</select>
+
+<select id="orientation" class="p-2 border rounded w-full mb-2">
+<option value="auto">Orientación automática</option>
+<option value="upright">De pie</option>
+<option value="flat">Acostada</option>
+<option value="side">De lado</option>
+</select>
+
+<div class="grid grid-cols-3 gap-2 mb-2">
+<input id="cw" type="number" placeholder="Ancho" class="p-2 border rounded">
+<input id="ch" type="number" placeholder="Alto" class="p-2 border rounded">
+<input id="cd" type="number" placeholder="Fondo" class="p-2 border rounded">
+</div>
+
+<div class="grid grid-cols-3 gap-2 mb-2">
+<input id="bw" type="number" placeholder="Ancho caja" class="p-2 border rounded">
+<input id="bh" type="number" placeholder="Alto caja" class="p-2 border rounded">
+<input id="bd" type="number" placeholder="Fondo caja" class="p-2 border rounded">
+</div>
+
+<input id="bq" type="number" value="1" min="1" class="p-2 border rounded w-full mb-2">
+
+<button onclick="calculate()" class="w-full bg-green-600 text-white p-2 rounded font-bold">
+🧠 Calcular acomodo
+</button>
+</div>
+
+<div class="card p-4 space-y-2">
+<button onclick="drawAll()" class="w-full bg-blue-600 text-white p-2 rounded">Vista completa</button>
+<button onclick="animateLoad()" class="w-full bg-purple-600 text-white p-2 rounded">Paso a paso</button>
+<button onclick="drawByLayer()" class="w-full bg-slate-700 text-white p-2 rounded">Por nivel</button>
+</div>
+
+<div class="card p-4 text-sm">
+<div><b>Cajas acomodadas:</b> <span id="fitInfo">0</span></div>
+<div><b>Orientación usada:</b> <span id="oriInfo">-</span></div>
+</div>
+
+</aside>
+
+<!-- 3D -->
+<main class="flex-1 bg-slate-200">
+<div id="canvas" class="w-full h-full"></div>
+</main>
+
+</div>
+
+<script>
+let scene,camera,renderer,controls
+let positions=[],bestRotation=[]
+let CW,CH,CD,BW,BH,BD,TOTAL
+
+function calculate(){
+ CW=+cw.value;CH=+ch.value;CD=+cd.value
+ BW=+bw.value;BH=+bh.value;BD=+bd.value
+ TOTAL=+bq.value
+
+ const rotations=getRotations()
+ const orders=[["x","y","z"],["y","x","z"],["x","z","y"]]
+
+ let best={count:0,pos:[],rot:null}
+
+ rotations.forEach(r=>{
+  orders.forEach(o=>{
+   const p=pack(o,r)
+   if(p.length>best.count){
+    best={count:p.length,pos:p,rot:r}
+   }
+  })
+ })
+
+ positions=best.pos
+ bestRotation=best.rot
+
+ fitInfo.innerText=`${best.count} / ${TOTAL}`
+ oriInfo.innerText=best.rot.join("×")
+
+ initScene()
+}
+
+function getRotations(){
+ const o=orientation.value
+ if(o==="upright") return [[BW,BH,BD]]
+ if(o==="flat") return [[BW,BD,BH]]
+ if(o==="side") return [[BH,BW,BD]]
+ return [
+  [BW,BH,BD],[BW,BD,BH],
+  [BH,BW,BD],[BH,BD,BW],
+  [BD,BW,BH],[BD,BH,BW]
+ ]
+}
+
+function pack(order,r){
+ const px=Math.floor(CW/r[0])
+ const py=Math.floor(CH/r[1])
+ const pz=Math.floor(CD/r[2])
+ if(px<=0||py<=0||pz<=0) return []
+
+ const pos=[]
+ let c=0
+ for(let z=0;z<pz;z++)
+  for(let y=0;y<py;y++)
+   for(let x=0;x<px;x++){
+    if(c>=TOTAL) return pos
+    pos.push({x,y,z})
+    c++
+   }
+ return pos
+}
+
+function initScene(){
+ scene=new THREE.Scene()
+ scene.background=new THREE.Color(0xf1f5f9)
+
+ camera=new THREE.PerspectiveCamera(50,canvas.clientWidth/canvas.clientHeight,1,10000)
+ camera.position.set(CW*1.6,CH*1.4,CD*1.6)
+
+ renderer=new THREE.WebGLRenderer({antialias:true})
+ renderer.setSize(canvas.clientWidth,canvas.clientHeight)
+ canvas.innerHTML=""
+ canvas.appendChild(renderer.domElement)
+
+ controls=new THREE.OrbitControls(camera,renderer.domElement)
+ controls.enableDamping=true
+
+ scene.add(new THREE.AmbientLight(0xffffff,.7))
+ const d=new THREE.DirectionalLight(0xffffff,.8)
+ d.position.set(600,800,600)
+ scene.add(d)
+
+ drawContainer()
+ drawBoxes()
+ animate()
+}
+
+function drawContainer(){
+ const modeSel=mode.value
+
+ if(modeSel==="rack"){
+  const metal=new THREE.MeshStandardMaterial({color:0x6b7280})
+  const shelfMat=new THREE.MeshStandardMaterial({color:0x9ca3af})
+
+  const shelfThickness=8
+  for(let y=0;y<=CH;y+=bestRotation[1]){
+   const shelf=new THREE.Mesh(
+    new THREE.BoxGeometry(CW,shelfThickness,CD),
+    shelfMat
+   )
+   shelf.position.set(0,-CH/2+y,0)
+   scene.add(shelf)
+  }
+
+  const postGeo=new THREE.BoxGeometry(10,CH,10)
+  ;[[-CW/2,-CD/2],[CW/2,-CD/2],[-CW/2,CD/2],[CW/2,CD/2]].forEach(p=>{
+   const post=new THREE.Mesh(postGeo,metal)
+   post.position.set(p[0],0,p[1])
+   scene.add(post)
+  })
+ }
+
+ if(modeSel==="truck"){
+  const wall=new THREE.MeshStandardMaterial({color:0xe5e7eb})
+  const floor=new THREE.MeshStandardMaterial({color:0x4b5563})
+
+  const base=new THREE.Mesh(new THREE.BoxGeometry(CW,8,CD),floor)
+  base.position.set(0,-CH/2,0)
+  scene.add(base)
+
+  const left=new THREE.Mesh(new THREE.BoxGeometry(6,CH,CD),wall)
+  left.position.set(-CW/2,0,0)
+  scene.add(left)
+
+  const right=new THREE.Mesh(new THREE.BoxGeometry(6,CH,CD),wall)
+  right.position.set(CW/2,0,0)
+  scene.add(right)
+
+  const top=new THREE.Mesh(new THREE.BoxGeometry(CW,6,CD),wall)
+  top.position.set(0,CH/2,0)
+  scene.add(top)
+
+  const back=new THREE.Mesh(new THREE.BoxGeometry(CW,CH,6),wall)
+  back.position.set(0,0,-CD/2)
+  scene.add(back)
+ }
+}
+
+function drawBoxes(){
+ positions.forEach(p=>{
+  const geo=new THREE.BoxGeometry(
+   bestRotation[0]-2,
+   bestRotation[1]-2,
+   bestRotation[2]-2
+  )
+  const mat=new THREE.MeshStandardMaterial({color:0xd97706})
+  const box=new THREE.Mesh(geo,mat)
+
+  box.position.set(
+   -CW/2+p.x*bestRotation[0]+bestRotation[0]/2,
+   -CH/2+p.y*bestRotation[1]+bestRotation[1]/2,
+   -CD/2+p.z*bestRotation[2]+bestRotation[2]/2
+  )
+  scene.add(box)
+
+  const edge=new THREE.LineSegments(
+   new THREE.EdgesGeometry(geo),
+   new THREE.LineBasicMaterial({color:0x000000})
+  )
+  edge.position.copy(box.position)
+  scene.add(edge)
+ })
+}
+
+function drawAll(){initScene()}
+function animateLoad(){drawAll()}
+function drawByLayer(){drawAll()}
+
+function animate(){
+ requestAnimationFrame(animate)
+ controls.update()
+ renderer.render(scene,camera)
+}
+</script>
+
+</body>
+</html>
