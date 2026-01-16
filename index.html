@@ -4,108 +4,127 @@
     <meta charset="UTF-8">
     <title>SAGA 3D |COLOMBIA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="https://cdn.tailwindcss.com"></script>
     
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.7.4/fflate.min.js"></script>
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap');
-        :root { --primary: #3b82f6; --danger: #ef4444; --surface: rgba(15, 23, 42, 0.9); }
-        body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
-        .glass-panel { background: var(--surface); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); color: white; }
-        .compact-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px; border-radius: 8px; font-family: 'JetBrains Mono'; font-size: 11px; color: #60a5fa; width: 100%; outline: none; transition: all 0.2s; }
-        .compact-input:focus { border-color: var(--primary); background: rgba(255,255,255,0.12); }
-        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
-        .warning-pulse { animation: pulse-red 1.5s infinite; background: #ef4444 !important; }
-        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        
+        :root { --primary: #3b82f6; --surface: rgba(15, 23, 42, 0.95); }
+        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        /* PANTALLA DE INICIO */
+        #splash-screen { position: fixed; inset: 0; z-index: 9999; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
+        .device-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); transition: all 0.3s ease; cursor: pointer; }
+        .device-card:hover { border-color: var(--primary); transform: translateY(-5px); background: rgba(59, 130, 246, 0.1); }
+
+        /* INTERFAZ DE USUARIO */
+        .glass-panel { background: var(--surface); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); color: white; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .compact-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 8px; border-radius: 10px; font-family: 'JetBrains Mono'; font-size: 11px; color: #60a5fa; width: 100%; outline: none; }
+        .compact-input:focus { border-color: var(--primary); }
+        
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
-        .file-dropzone { border: 2px dashed rgba(59, 130, 246, 0.3); cursor: pointer; transition: all 0.3s; }
-        .file-dropzone:hover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+
+        /* ANIMACIONES */
+        .pulse-warning { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        /* AJUSTES MÓVIL */
+        @media (max-width: 768px) {
+            #main-ui { width: 100% !important; right: 0 !important; bottom: 0 !important; top: auto !important; height: 60px; transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+            #main-ui.expanded { height: 85vh; }
+            .mobile-handle { display: block !important; width: 40px; height: 4px; background: rgba(255,255,255,0.2); margin: 8px auto; border-radius: 2px; }
+        }
     </style>
 </head>
 <body>
 
-    <div id="stats-ui" class="fixed top-6 left-6 z-40 w-72 pointer-events-none">
-        <div class="glass-panel p-5 rounded-[24px] shadow-2xl border-l-4 border-blue-500 pointer-events-auto">
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <div class="text-[9px] font-black text-blue-400 uppercase tracking-widest">Capacidad de Carga</div>
-                    <div class="flex items-baseline gap-1">
-                        <span id="stat-eff" class="text-4xl font-black text-white tracking-tighter">0%</span>
-                        <span class="text-[10px] text-white/40 font-bold">USO</span>
-                    </div>
-                </div>
-                <div id="overweight-tag" class="status-badge bg-emerald-500 text-white hidden">Normal</div>
+    <div id="splash-screen">
+        <div class="text-center mb-12">
+            <h1 class="text-5xl font-black text-white tracking-tighter mb-2 italic">SAGA<span class="text-blue-500">3D</span></h1>
+            <p class="text-blue-400 text-xs font-bold uppercase tracking-[0.4em]">COLOMBIA </p>
+        </div>
+        <div class="flex flex-col md:flex-row gap-6">
+            <div onclick="startApp('pc')" class="device-card p-12 rounded-[40px] text-center w-72">
+                <i class="fas fa-desktop text-5xl text-blue-500 mb-6"></i>
+                <h3 class="text-white font-bold uppercase tracking-widest text-sm">Escritorio</h3>
+                <p class="text-white/30 text-[10px] mt-2 leading-relaxed">Interfaz completa lateral<br>Control de precisión</p>
             </div>
-            <div class="space-y-3 mt-4">
-                <div class="flex justify-between text-[10px] font-bold">
-                    <span class="text-white/60">DISPONIBLE:</span>
-                    <span id="stat-avail" class="text-blue-400">0.0 m³</span>
+            <div onclick="startApp('mobile')" class="device-card p-12 rounded-[40px] text-center w-72">
+                <i class="fas fa-mobile-alt text-5xl text-blue-500 mb-6"></i>
+                <h3 class="text-white font-bold uppercase tracking-widest text-sm">Móvil</h3>
+                <p class="text-white/30 text-[10px] mt-2 leading-relaxed">Interfaz táctil optimizada<br>Panel colapsable</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats-ui" class="fixed top-6 left-6 z-40 w-72 pointer-events-none hidden">
+        <div class="glass-panel p-6 rounded-[30px] border-l-4 border-blue-500 pointer-events-auto">
+            <div class="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Volumen Ocupado</div>
+            <div class="flex items-baseline gap-2">
+                <span id="stat-eff" class="text-4xl font-black text-white tracking-tighter">0%</span>
+                <span id="overweight-tag" class="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500 hidden uppercase">OK</span>
+            </div>
+            <div class="h-1.5 bg-white/5 rounded-full overflow-hidden mt-4">
+                <div id="eff-bar" class="h-full bg-blue-500 w-0 transition-all duration-1000"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mt-5 pt-4 border-t border-white/5">
+                <div>
+                    <span class="text-[8px] text-white/40 block uppercase font-bold">Peso Total</span>
+                    <span id="stat-weight" class="text-sm font-bold text-white">0 kg</span>
                 </div>
-                <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div id="eff-bar" class="h-full bg-blue-500 w-0 transition-all duration-1000"></div>
-                </div>
-                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                    <div>
-                        <span class="text-[9px] text-white/40 block uppercase">Peso Total</span>
-                        <span id="stat-weight" class="text-sm font-black text-white">0 kg</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-[9px] text-white/40 block uppercase">Cajas Totales</span>
-                        <span id="stat-count" class="text-sm font-black text-white">0</span>
-                    </div>
+                <div class="text-right">
+                    <span class="text-[8px] text-white/40 block uppercase font-bold">Unidades</span>
+                    <span id="stat-count" class="text-sm font-bold text-white">0</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="main-ui" class="fixed top-6 right-6 bottom-6 w-72 z-50 flex flex-col gap-4 transition-all duration-500">
-        <div class="glass-panel p-4 rounded-[28px] flex flex-col h-full shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between mb-4">
-                <h1 class="font-black text-lg tracking-tighter">SAGA<span class="text-blue-500">3D</span></h1>
-                <i class="fas fa-cubes text-blue-500"></i>
+    <div id="main-ui" class="fixed top-6 right-6 bottom-6 w-80 z-50 hidden">
+        <div class="glass-panel p-5 rounded-[32px] flex flex-col h-full overflow-hidden">
+            <div class="mobile-handle hidden"></div>
+            
+            <div class="flex items-center justify-between mb-6" onclick="toggleMobileUI()">
+                <h2 class="font-black text-xl tracking-tight">CONFIG<span class="text-blue-500">3D</span></h2>
+                <i id="menu-icon" class="fas fa-sliders-h text-blue-500"></i>
             </div>
 
-            <div class="flex-1 overflow-y-auto custom-scroll pr-1 space-y-5">
+            <div id="scroll-content" class="flex-1 overflow-y-auto custom-scroll pr-1 space-y-6">
                 <section>
-                    <label class="text-[9px] font-black text-white/40 uppercase mb-2 block tracking-widest">Espacio de Carga</label>
-                    <select id="vehicle-select" onchange="updateVehicle()" class="compact-input mb-1">
-                        <optgroup label="Transporte">
-                            <option value="npr">🚛 Furgón NPR (5T)</option>
-                            <option value="tracto">🚛 Tractomula (32T)</option>
-                            <option value="van">🚐 Mini Van (1.2T)</option>
-                            <option value="custom">🛠️ Cargar Modelo Pro (.OBJ / .FBX)</option>
-                        </optgroup>
-                        <optgroup label="Almacén">
-                            <option value="floor">🏬 Piso de Almacén (10x10m)</option>
-                            <option value="shelf">🏗️ Estante Pesado (Rack)</option>
-                        </optgroup>
+                    <label class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3 block">Espacio de Trabajo</label>
+                    <select id="vehicle-select" onchange="updateVehicle()" class="compact-input font-bold mb-3">
+                        <option value="npr">🚚 Camión NPR (Estándar)</option>
+                        <option value="tracto">🚛 Tractomula (Gran Carga)</option>
+                        <option value="custom">🛠️ Cargar Modelo Pro (.OBJ/.FBX)</option>
                     </select>
 
-                    <div id="custom-model-controls" class="hidden mt-4 space-y-3 bg-white/5 p-3 rounded-xl border border-white/10">
-                        <div class="file-dropzone p-3 rounded-lg text-center border-dashed" onclick="document.getElementById('multi-file').click()">
-                            <i class="fas fa-cloud-upload-alt text-blue-400 mb-1"></i>
-                            <p class="text-[8px] font-bold uppercase text-white/60">Subir .OBJ + .MTL + Texturas</p>
-                            <input type="file" id="multi-file" multiple class="hidden" onchange="handleFiles(this.files)">
+                    <div id="custom-tools" class="hidden space-y-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <div class="border-2 border-dashed border-blue-500/30 p-4 rounded-xl text-center cursor-pointer hover:bg-blue-500/5" onclick="document.getElementById('file-input').click()">
+                            <i class="fas fa-file-import text-blue-500 text-2xl mb-2"></i>
+                            <p class="text-[9px] font-bold text-white/60 uppercase">Importar Archivos</p>
+                            <p class="text-[7px] text-white/30 uppercase mt-1">Sube .OBJ + .MTL + Texturas</p>
+                            <input type="file" id="file-input" multiple class="hidden" onchange="handleFiles(this.files)">
                         </div>
                         <div class="grid grid-cols-2 gap-2">
-                            <div><span class="text-[7px] text-white/40 block">ESCALA</span><input type="number" id="m-scale" value="1.0" step="0.1" class="compact-input text-center" onchange="updateVehicle()"></div>
-                            <div><span class="text-[7px] text-white/40 block">ROTACIÓN</span><input type="number" id="m-rot" value="0" class="compact-input text-center" onchange="updateVehicle()"></div>
+                            <div><span class="text-[8px] text-white/40 block ml-1 mb-1">ESCALA</span><input type="number" id="m-scale" value="1" step="0.1" class="compact-input text-center" onchange="updateVehicle()"></div>
+                            <div><span class="text-[8px] text-white/40 block ml-1 mb-1">ROTACIÓN</span><input type="number" id="m-rot" value="0" class="compact-input text-center" onchange="updateVehicle()"></div>
                         </div>
-                        <div class="border-t border-white/10 pt-2">
-                            <span class="text-[8px] font-black text-yellow-500 uppercase block mb-2">Ajuste de Contenedor</span>
+                        <div class="pt-2 border-t border-white/10">
+                            <span class="text-[9px] font-bold text-yellow-500 uppercase block mb-2">Dimensiones del Contenedor</span>
                             <div class="grid grid-cols-3 gap-1 mb-2">
-                                <input type="number" id="c-w" placeholder="AN" class="compact-input text-center" onchange="updateVehicle()">
-                                <input type="number" id="c-h" placeholder="AL" class="compact-input text-center" onchange="updateVehicle()">
-                                <input type="number" id="c-d" placeholder="LA" class="compact-input text-center" onchange="updateVehicle()">
+                                <input type="number" id="c-w" placeholder="Ancho" class="compact-input text-center" onchange="updateVehicle()">
+                                <input type="number" id="c-h" placeholder="Alto" class="compact-input text-center" onchange="updateVehicle()">
+                                <input type="number" id="c-d" placeholder="Largo" class="compact-input text-center" onchange="updateVehicle()">
                             </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <input type="number" id="c-y" placeholder="Altura Y" class="compact-input text-center" onchange="updateVehicle()">
@@ -116,18 +135,16 @@
                 </section>
 
                 <section>
-                    <div class="flex justify-between items-center mb-3">
-                        <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Inventario</label>
-                        <button onclick="addNewBox()" class="text-blue-400 text-[10px] font-bold hover:text-white transition-colors">
-                            <i class="fas fa-plus-circle mr-1"></i> AÑADIR
-                        </button>
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Cajas a Cargar</label>
+                        <button onclick="addNewBox()" class="text-blue-400 text-[10px] font-black hover:text-white transition-all">+ AÑADIR LOTE</button>
                     </div>
                     <div id="box-container" class="space-y-3"></div>
                 </section>
             </div>
 
-            <button onclick="runIAOptimization()" class="mt-4 w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-black text-[9px] tracking-widest uppercase transition-all transform active:scale-95 shadow-lg shadow-blue-500/20">
-                <i class="fas fa-brain mr-2"></i> Calcular Optimización
+            <button onclick="runOptimization()" class="mt-6 w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg transition-all active:scale-95">
+                Calcular Carga Óptima
             </button>
         </div>
     </div>
@@ -135,14 +152,26 @@
     <div id="canvas-container" class="fixed inset-0"></div>
 
 <script>
-let scene, camera, renderer, controls, vehicleMesh, cabinModel;
+let scene, camera, renderer, controls, vehicleGroup, customModel;
 let boxesInScene = [];
-let boxTypes = [{ id: 1, w: 40, h: 40, d: 50, qty: 80, weight: 15, color: '#3b82f6', name: 'CARGA A' }];
-const weightLimits = { npr: 5000, tracto: 32000, van: 1200, floor: 50000, shelf: 2000, custom: 45000 };
+let boxTypes = [{ id: 1, w: 40, h: 40, d: 50, qty: 80, weight: 15, color: '#3b82f6', name: 'LOTE CARGA A' }];
+let currentMode = 'pc';
 
-function init() {
+// INICIO DE LA APP
+function startApp(mode) {
+    currentMode = mode;
+    document.getElementById('splash-screen').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('splash-screen').style.display = 'none';
+        document.getElementById('stats-ui').classList.remove('hidden');
+        document.getElementById('main-ui').classList.remove('hidden');
+        initThree();
+    }, 500);
+}
+
+function initThree() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 1, 30000);
+    camera = new THREE.PerspectiveCamera(currentMode === 'mobile' ? 60 : 45, window.innerWidth / window.innerHeight, 1, 30000);
     camera.position.set(1200, 1200, 1200);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -153,211 +182,195 @@ function init() {
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    if(currentMode === 'mobile') controls.rotateSpeed = 0.6;
 
-    setupEnvironment();
-    renderBoxUI();
+    // Luces
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+    sun.position.set(1000, 2000, 1000);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    // Grid y Suelo
+    scene.add(new THREE.GridHelper(10000, 100, 0x1e293b, 0x1e293b));
+
     updateVehicle();
+    renderBoxUI();
     animate();
 }
 
-function setupEnvironment() {
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    mainLight.position.set(500, 1500, 500);
-    mainLight.castShadow = true;
-    scene.add(mainLight);
-
-    const floorGeo = new THREE.CircleGeometry(5000, 64);
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.5 });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    scene.add(new THREE.GridHelper(10000, 60, 0x334155, 0x1e293b));
-}
-
-function createWheel(x, y, z) {
-    const wheelGroup = new THREE.Group();
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 10, 16), new THREE.MeshStandardMaterial({ color: 0x111827 }));
-    tire.rotation.z = Math.PI / 2;
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 11, 16), new THREE.MeshStandardMaterial({ color: 0x4b5563 }));
-    rim.rotation.z = Math.PI / 2;
-    wheelGroup.add(tire, rim);
-    wheelGroup.position.set(x, y, z);
-    return wheelGroup;
-}
-
+// GESTIÓN DE VEHÍCULOS
 function updateVehicle() {
-    if(vehicleMesh) scene.remove(vehicleMesh);
-    vehicleMesh = new THREE.Group();
+    if(vehicleGroup) scene.remove(vehicleGroup);
+    vehicleGroup = new THREE.Group();
     
     const type = document.getElementById('vehicle-select').value;
-    const customUI = document.getElementById('custom-model-controls');
+    const customUI = document.getElementById('custom-tools');
     customUI.classList.toggle('hidden', type !== 'custom');
 
-    let dims = { w: 240, h: 250, d: 550, yOff: 0, zOff: 0 };
-    
-    if(type === 'npr') { dims = { w: 230, h: 240, d: 500, yOff: 45, zOff: 120 }; }
-    else if(type === 'tracto') { dims = { w: 245, h: 280, d: 1250, yOff: 45, zOff: 200 }; }
-    else if(type === 'van') { dims = { w: 170, h: 160, d: 300, yOff: 30, zOff: 0 }; }
-    else if(type === 'floor') { dims = { w: 1000, h: 400, d: 1000, yOff: 0, zOff: 0 }; }
-    else if(type === 'shelf') { dims = { w: 240, h: 200, d: 120, yOff: 0, zOff: 0 }; }
-    else if(type === 'custom') {
-        dims = {
+    let v = { w: 230, h: 240, d: 500, y: 45, z: 120 }; // NPR Default
+
+    if(type === 'tracto') v = { w: 245, h: 280, d: 1250, y: 45, z: 200 };
+    if(type === 'custom') {
+        v = {
             w: parseFloat(document.getElementById('c-w').value) || 240,
             h: parseFloat(document.getElementById('c-h').value) || 250,
             d: parseFloat(document.getElementById('c-d').value) || 550,
-            yOff: parseFloat(document.getElementById('c-y').value) || 0,
-            zOff: parseFloat(document.getElementById('c-z').value) || 0
+            y: parseFloat(document.getElementById('c-y').value) || 0,
+            z: parseFloat(document.getElementById('c-z').value) || 0
         };
-        if(cabinModel) {
+        if(customModel) {
             const s = parseFloat(document.getElementById('m-scale').value) || 1;
-            cabinModel.scale.set(s, s, s);
-            cabinModel.rotation.y = (parseFloat(document.getElementById('m-rot').value) || 0) * (Math.PI/180);
-            vehicleMesh.add(cabinModel);
+            customModel.scale.set(s, s, s);
+            customModel.rotation.y = (parseFloat(document.getElementById('m-rot').value) || 0) * (Math.PI/180);
+            vehicleGroup.add(customModel);
         }
+    } else {
+        // Modelo visual básico para presets
+        const cabina = new THREE.Mesh(new THREE.BoxGeometry(v.w, v.h*0.7, 100), new THREE.MeshStandardMaterial({color: 0x1e293b}));
+        cabina.position.set(0, v.h*0.35, v.z - v.d/2 - 60);
+        vehicleGroup.add(cabina);
     }
 
-    const glassBody = new THREE.Mesh(
-        new THREE.BoxGeometry(dims.w, dims.h, dims.d),
-        new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.1, side: THREE.DoubleSide })
+    const areaCarga = new THREE.Mesh(
+        new THREE.BoxGeometry(v.w, v.h, v.d),
+        new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
     );
-    glassBody.position.set(0, dims.yOff + dims.h/2, dims.zOff);
-    vehicleMesh.add(glassBody);
+    areaCarga.position.set(0, v.y + v.h/2, v.z);
+    vehicleGroup.add(areaCarga);
 
-    if (['npr', 'tracto', 'van'].includes(type)) {
-        const cabW = dims.w * 0.9, cabH = dims.h * 0.7, cabD = 80;
-        const cabina = new THREE.Mesh(new THREE.BoxGeometry(cabW, cabH, cabD), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-        cabina.position.set(0, cabH/2, dims.zOff - dims.d/2 - cabD/2);
-        vehicleMesh.add(cabina);
-        vehicleMesh.add(createWheel(-dims.w/2, 10, dims.zOff - dims.d/3));
-        vehicleMesh.add(createWheel(dims.w/2, 10, dims.zOff - dims.d/3));
-        vehicleMesh.add(createWheel(-dims.w/2, 10, dims.zOff + dims.d/3));
-        vehicleMesh.add(createWheel(dims.w/2, 10, dims.zOff + dims.d/3));
-    }
-
-    scene.add(vehicleMesh);
-    window.vDims = dims;
+    scene.add(vehicleGroup);
+    window.vDims = v;
 }
 
+// LECTOR DE ARCHIVOS PRO
 async function handleFiles(files) {
-    const fileList = Array.from(files);
-    const objFile = fileList.find(f => f.name.toLowerCase().endsWith('.obj'));
-    const mtlFile = fileList.find(f => f.name.toLowerCase().endsWith('.mtl'));
-    const fbxFile = fileList.find(f => f.name.toLowerCase().endsWith('.fbx'));
-    const textureFiles = fileList.filter(f => /\.(jpg|jpeg|png)$/i.test(f.name));
+    const list = Array.from(files);
+    const obj = list.find(f => f.name.toLowerCase().endsWith('.obj'));
+    const mtl = list.find(f => f.name.toLowerCase().endsWith('.mtl'));
+    const fbx = list.find(f => f.name.toLowerCase().endsWith('.fbx'));
+    const textures = list.filter(f => /\.(jpg|png|jpeg)$/i.test(f.name));
 
-    const loadingManager = new THREE.LoadingManager();
-    loadingManager.setURLModifier((url) => {
-        const fileName = url.split('/').pop();
-        const file = textureFiles.find(f => f.name === fileName);
-        if (file) return URL.createObjectURL(file);
-        return url;
+    const manager = new THREE.LoadingManager();
+    manager.setURLModifier((url) => {
+        const file = textures.find(t => t.name === url.split('/').pop());
+        return file ? URL.createObjectURL(file) : url;
     });
 
-    const processModel = (obj) => { cabinModel = obj; updateVehicle(); };
+    const setModel = (m) => { customModel = m; updateVehicle(); };
 
-    if (fbxFile) {
+    if (fbx) {
         const reader = new FileReader();
-        reader.onload = (e) => processModel(new THREE.FBXLoader(loadingManager).parse(e.target.result));
-        reader.readAsArrayBuffer(fbxFile);
-    } else if (objFile) {
-        const objReader = new FileReader();
-        if (mtlFile) {
-            const mtlReader = new FileReader();
-            mtlReader.onload = (me) => {
-                const materials = new THREE.MTLLoader(loadingManager).parse(me.target.result);
+        reader.onload = (e) => setModel(new THREE.FBXLoader(manager).parse(e.target.result));
+        reader.readAsArrayBuffer(fbx);
+    } else if (obj) {
+        if (mtl) {
+            const mtlR = new FileReader();
+            mtlR.onload = (me) => {
+                const materials = new THREE.MTLLoader(manager).parse(me.target.result);
                 materials.preload();
-                objReader.onload = (oe) => {
-                    const loader = new THREE.OBJLoader(loadingManager);
+                const objR = new FileReader();
+                objR.onload = (oe) => {
+                    const loader = new THREE.OBJLoader(manager);
                     loader.setMaterials(materials);
-                    processModel(loader.parse(oe.target.result));
+                    setModel(loader.parse(oe.target.result));
                 };
-                objReader.readAsText(objFile);
+                objR.readAsText(obj);
             };
-            mtlReader.readAsText(mtlFile);
+            mtlR.readAsText(mtl);
         } else {
-            objReader.onload = (e) => processModel(new THREE.OBJLoader(loadingManager).parse(e.target.result));
-            objReader.readAsText(objFile);
+            const objR = new FileReader();
+            objR.onload = (e) => setModel(new THREE.OBJLoader(manager).parse(e.target.result));
+            objR.readAsText(obj);
         }
     }
 }
 
-// CEREBRO DE OPTIMIZACIÓN (Mantenido intacto)
-function runIAOptimization() {
+// CEREBRO DE OPTIMIZACIÓN
+function runOptimization() {
     boxesInScene.forEach(b => scene.remove(b));
     boxesInScene = [];
     const L = window.vDims;
-    let x = -L.w/2, y = 0, z = -L.d/2, shelfH = 0, rowD = 0;
-    let totalVol = 0, totalW = 0, totalCount = 0;
+    let x = -L.w/2, y = 0, z = -L.d/2, maxH = 0, maxD = 0;
+    let vUsed = 0, wTotal = 0, count = 0;
 
-    boxTypes.sort((a,b) => (b.w*b.d) - (a.w*a.d)).forEach(type => {
-        const mat = new THREE.MeshStandardMaterial({ color: type.color, roughness: 0.6 });
+    boxTypes.sort((a,b) => (b.w*b.d)-(a.w*a.d)).forEach(type => {
         for(let i=0; i < type.qty; i++) {
-            let bw = type.w, bh = type.h, bd = type.d;
-            if ((L.w/2 - x) < bw && (L.w/2 - x) >= bd) [bw, bd] = [bd, bw];
-            if (z + bd > L.d/2) { z = -L.d/2; x += rowD; rowD = 0; }
-            if (x + bw > L.w/2) { x = -L.w/2; z = -L.d/2; y += shelfH; shelfH = 0; rowD = 0; }
-            if (y + bh > L.h) break;
+            if (z + type.d > L.d/2) { z = -L.d/2; x += maxD; maxD = 0; }
+            if (x + type.w > L.w/2) { x = -L.w/2; z = -L.d/2; y += maxH; maxH = 0; maxD = 0; }
+            if (y + type.h > L.h) break;
 
-            const box = new THREE.Mesh(new THREE.BoxGeometry(bw-0.5, bh-0.5, bd-0.5), mat);
-            box.position.set(x + bw/2, y + bh/2 + L.yOff, z + bd/2 + L.zOff);
+            const box = new THREE.Mesh(
+                new THREE.BoxGeometry(type.w-0.5, type.h-0.5, type.d-0.5), 
+                new THREE.MeshStandardMaterial({ color: type.color, roughness: 0.7 })
+            );
+            box.position.set(x + type.w/2, y + type.h/2 + L.y, z + type.d/2 + L.z);
             box.castShadow = true;
             scene.add(box);
             boxesInScene.push(box);
-            z += bd; shelfH = Math.max(shelfH, bh); rowD = Math.max(rowD, bw);
-            totalVol += (bw * bh * bd); totalW += type.weight; totalCount++;
+
+            z += type.d;
+            maxH = Math.max(maxH, type.h);
+            maxD = Math.max(maxD, type.w);
+            vUsed += (type.w * type.h * type.d);
+            wTotal += type.weight;
+            count++;
         }
     });
-    updateStats(totalVol, totalW, totalCount);
-}
 
-function updateStats(vol, weight, count) {
-    const L = window.vDims;
-    const totalCap = L.w * L.h * L.d;
-    const eff = ((vol / totalCap) * 100).toFixed(1);
-    const avail = ((totalCap - vol) / 1000000).toFixed(2);
+    const eff = ((vUsed / (L.w*L.h*L.d))*100).toFixed(1);
     document.getElementById('stat-eff').innerText = eff + "%";
     document.getElementById('eff-bar').style.width = eff + "%";
-    document.getElementById('stat-avail').innerText = avail + " m³";
-    document.getElementById('stat-weight').innerText = weight.toLocaleString() + " kg";
+    document.getElementById('stat-weight').innerText = wTotal.toLocaleString() + " kg";
     document.getElementById('stat-count').innerText = count;
-    const limit = weightLimits[document.getElementById('vehicle-select').value];
-    const tag = document.getElementById('overweight-tag');
-    tag.classList.remove('hidden');
-    if(weight > limit) { tag.innerText = "¡Sobrepeso!"; tag.classList.add('warning-pulse'); }
-    else { tag.innerText = "Carga OK"; tag.classList.remove('warning-pulse'); tag.style.background = "#10b981"; }
+
+    if(currentMode === 'mobile') toggleMobileUI();
 }
 
+// INTERFAZ DE CAJAS
 function renderBoxUI() {
-    const container = document.getElementById('box-container');
-    container.innerHTML = boxTypes.map((box, i) => `
-        <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-all hover:bg-white/10">
-            <div class="flex justify-between items-center mb-2">
-                <input class="bg-transparent text-[9px] font-black text-blue-400 w-2/3 outline-none uppercase" value="${box.name}" onchange="boxTypes[${i}].name=this.value">
-                <button onclick="boxTypes.splice(${i},1);renderBoxUI()" class="text-red-500/50 hover:text-red-500"><i class="fas fa-times-circle"></i></button>
+    document.getElementById('box-container').innerHTML = boxTypes.map((b, i) => `
+        <div class="bg-white/5 p-4 rounded-2xl border border-white/5 transition-all hover:bg-white/10">
+            <div class="flex justify-between mb-3">
+                <input class="bg-transparent text-[10px] font-black text-blue-400 outline-none w-full" value="${b.name}" onchange="boxTypes[${i}].name=this.value">
+                <button onclick="boxTypes.splice(${i},1);renderBoxUI()" class="text-white/20 hover:text-red-500"><i class="fas fa-times"></i></button>
             </div>
-            <div class="grid grid-cols-4 gap-1.5 mb-2">
-                <div><span class="text-[7px] text-white/30 block">AN</span><input type="number" value="${box.w}" class="compact-input" onchange="boxTypes[${i}].w=Number(this.value)"></div>
-                <div><span class="text-[7px] text-white/30 block">AL</span><input type="number" value="${box.h}" class="compact-input" onchange="boxTypes[${i}].h=Number(this.value)"></div>
-                <div><span class="text-[7px] text-white/30 block">LA</span><input type="number" value="${box.d}" class="compact-input" onchange="boxTypes[${i}].d=Number(this.value)"></div>
-                <div><span class="text-[7px] text-white/30 block">KG</span><input type="number" value="${box.weight}" class="compact-input" onchange="boxTypes[${i}].weight=Number(this.value)"></div>
+            <div class="grid grid-cols-4 gap-2">
+                <div><span class="text-[7px] text-white/30 block ml-1">AN</span><input type="number" value="${b.w}" class="compact-input" onchange="boxTypes[${i}].w=Number(this.value)"></div>
+                <div><span class="text-[7px] text-white/30 block ml-1">AL</span><input type="number" value="${b.h}" class="compact-input" onchange="boxTypes[${i}].h=Number(this.value)"></div>
+                <div><span class="text-[7px] text-white/30 block ml-1">LA</span><input type="number" value="${b.d}" class="compact-input" onchange="boxTypes[${i}].d=Number(this.value)"></div>
+                <div><span class="text-[7px] text-white/30 block ml-1">QTY</span><input type="number" value="${b.qty}" class="compact-input bg-blue-500/10" onchange="boxTypes[${i}].qty=Number(this.value)"></div>
             </div>
-            <input type="number" value="${box.qty}" class="compact-input" onchange="boxTypes[${i}].qty=Number(this.value)">
         </div>
     `).join('');
 }
 
 function addNewBox() {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
-    boxTypes.push({ id: Date.now(), w: 40, h: 40, d: 40, qty: 20, weight: 10, color: colors[boxTypes.length % colors.length], name: 'LOTE' });
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+    boxTypes.push({ id: Date.now(), w: 40, h: 40, d: 40, qty: 20, weight: 10, color: colors[boxTypes.length % 5], name: 'LOTE NUEVO' });
     renderBoxUI();
 }
 
-function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
-window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
-init();
+// FUNCIONES DE SOPORTE
+function toggleMobileUI() {
+    if(currentMode !== 'mobile') return;
+    const ui = document.getElementById('main-ui');
+    const icon = document.getElementById('menu-icon');
+    ui.classList.toggle('expanded');
+    icon.className = ui.classList.contains('expanded') ? 'fas fa-chevron-down text-blue-500' : 'fas fa-sliders-h text-blue-500';
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
