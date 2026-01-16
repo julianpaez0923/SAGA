@@ -2,354 +2,361 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>SAGA | COLOMBIA</title>
+    <title>SAGA 3D |COLOMBIA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.7.4/fflate.min.js"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&family=JetBrains+Mono:wght@400;800&display=swap');
-
-        :root {
-            --bg: #09090b;
-            --panel: rgba(24, 24, 27, 0.92);
-            --border: rgba(255, 255, 255, 0.1);
-            --primary: #3b82f6;
-        }
-
-        body { 
-            background: var(--bg); 
-            color: #e4e4e7; 
-            margin: 0; 
-            overflow: hidden; 
-            font-family: 'Inter', sans-serif;
-            touch-action: none; /* Evita zoom accidental en móviles */
-        }
-        
-        .glass {
-            background: var(--panel);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-        }
-        
-        /* Ajustes de scroll para el panel lateral en móviles */
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        :root { --primary: #3b82f6; --danger: #ef4444; --surface: rgba(15, 23, 42, 0.9); }
+        body { margin: 0; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
+        .glass-panel { background: var(--surface); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); color: white; }
+        .compact-input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px; border-radius: 8px; font-family: 'JetBrains Mono'; font-size: 11px; color: #60a5fa; width: 100%; outline: none; transition: all 0.2s; }
+        .compact-input:focus { border-color: var(--primary); background: rgba(255,255,255,0.12); }
+        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+        .warning-pulse { animation: pulse-red 1.5s infinite; background: #ef4444 !important; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
-
-        input, select {
-            background: #27272a; border: 1px solid #3f3f46; color: white;
-            padding: 10px; border-radius: 8px; font-size: 14px; width: 100%; font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* UI Dinámica */
-        #ui-layer { 
-            position: absolute; 
-            inset: 0; 
-            z-index: 10; 
-            pointer-events: none; 
-            display: flex; 
-            flex-direction: column;
-            padding: 12px;
-        }
-
-        .pointer-auto { pointer-events: auto; }
-
-        /* Responsividad: Panel Lateral */
-        #config-panel {
-            position: fixed;
-            right: -100%;
-            top: 0;
-            height: 100%;
-            width: 85%;
-            max-width: 350px;
-            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 50;
-        }
-
-        #config-panel.open { right: 0; }
-
-        @media (min-width: 1024px) {
-            #config-panel { position: relative; right: 0; width: 350px; height: auto; border-radius: 12px; }
-            #ui-layer { flex-direction: row; justify-content: space-between; }
-        }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+        .file-dropzone { border: 2px dashed rgba(59, 130, 246, 0.3); cursor: pointer; transition: all 0.3s; }
+        .file-dropzone:hover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
     </style>
 </head>
 <body>
 
-    <div id="canvas-layer" style="position: fixed; inset: 0;"></div>
-
-    <button onclick="togglePanel()" class="lg:hidden fixed top-4 right-4 z-[60] bg-blue-600 p-3 rounded-full shadow-lg pointer-auto">
-        <i class="fas fa-cog" id="cog-icon"></i>
-    </button>
-
-    <div id="ui-layer">
-        <div class="w-full lg:w-72 flex flex-col gap-3 pointer-auto">
-            <div class="glass p-4 rounded-xl border-l-4 border-blue-500">
-                <h1 class="font-bold text-base flex items-center gap-2">
-                    <i class="fas fa-layer-group text-blue-500"></i> SAGA CARGO
-                </h1>
-                <div id="ai-feedback" class="mt-2 p-2 bg-blue-900/20 rounded border border-blue-500/30 hidden">
-                    <p id="ai-text" class="text-[10px] text-blue-300 leading-tight"></p>
+    <div id="stats-ui" class="fixed top-6 left-6 z-40 w-72 pointer-events-none">
+        <div class="glass-panel p-5 rounded-[24px] shadow-2xl border-l-4 border-blue-500 pointer-events-auto">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <div class="text-[9px] font-black text-blue-400 uppercase tracking-widest">Capacidad de Carga</div>
+                    <div class="flex items-baseline gap-1">
+                        <span id="stat-eff" class="text-4xl font-black text-white tracking-tighter">0%</span>
+                        <span class="text-[10px] text-white/40 font-bold">USO</span>
+                    </div>
                 </div>
+                <div id="overweight-tag" class="status-badge bg-emerald-500 text-white hidden">Normal</div>
             </div>
-
-            <div class="glass p-4 rounded-xl space-y-2">
-                <div class="flex justify-between text-[10px] font-bold text-gray-400">
-                    <span>EFICIENCIA</span>
-                    <span id="stat-eff" class="text-white">0%</span>
+            <div class="space-y-3 mt-4">
+                <div class="flex justify-between text-[10px] font-bold">
+                    <span class="text-white/60">DISPONIBLE:</span>
+                    <span id="stat-avail" class="text-blue-400">0.0 m³</span>
                 </div>
-                <div class="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div id="bar-eff" class="h-full bg-blue-500 w-0 transition-all duration-700"></div>
+                <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div id="eff-bar" class="h-full bg-blue-500 w-0 transition-all duration-1000"></div>
                 </div>
-                <div class="flex justify-between items-center pt-1">
-                    <div><span class="text-[9px] block text-gray-500">CAJAS</span><span id="stat-count" class="font-mono text-sm">0</span></div>
-                    <div class="text-right"><span class="text-[9px] block text-gray-500">PESO</span><span id="stat-weight" class="font-mono text-sm">0 kg</span></div>
+                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                    <div>
+                        <span class="text-[9px] text-white/40 block uppercase">Peso Total</span>
+                        <span id="stat-weight" class="text-sm font-black text-white">0 kg</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[9px] text-white/40 block uppercase">Cajas Totales</span>
+                        <span id="stat-count" class="text-sm font-black text-white">0</span>
+                    </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-3 pointer-auto z-40">
-            <button onclick="toggleSim()" id="btn-sim" class="glass px-5 py-3 rounded-2xl flex flex-col items-center min-w-[70px]">
-                <i class="fas fa-play text-xs mb-1"></i>
-                <span class="text-[8px] font-bold uppercase">Física</span>
-            </button>
-            <button onclick="runAutoAI()" class="bg-emerald-600/80 backdrop-blur px-5 py-3 rounded-2xl flex flex-col items-center min-w-[70px] border border-emerald-400/50">
-                <i class="fas fa-brain text-xs mb-1"></i>
-                <span class="text-[8px] font-bold uppercase">Auto-IA</span>
-            </button>
-        </div>
+    <div id="main-ui" class="fixed top-6 right-6 bottom-6 w-72 z-50 flex flex-col gap-4 transition-all duration-500">
+        <div class="glass-panel p-4 rounded-[28px] flex flex-col h-full shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h1 class="font-black text-lg tracking-tighter">SAGA<span class="text-blue-500">3D</span></h1>
+                <i class="fas fa-cubes text-blue-500"></i>
+            </div>
 
-        <div id="config-panel" class="glass p-6 overflow-y-auto custom-scroll pointer-auto flex flex-col gap-5">
-            <h2 class="text-xs font-bold text-blue-400 uppercase tracking-widest border-b border-white/10 pb-2">Configuración</h2>
+            <div class="flex-1 overflow-y-auto custom-scroll pr-1 space-y-5">
+                <section>
+                    <label class="text-[9px] font-black text-white/40 uppercase mb-2 block tracking-widest">Espacio de Carga</label>
+                    <select id="vehicle-select" onchange="updateVehicle()" class="compact-input mb-1">
+                        <optgroup label="Transporte">
+                            <option value="npr">🚛 Furgón NPR (5T)</option>
+                            <option value="tracto">🚛 Tractomula (32T)</option>
+                            <option value="van">🚐 Mini Van (1.2T)</option>
+                            <option value="custom">🛠️ Cargar Modelo Pro (.OBJ / .FBX)</option>
+                        </optgroup>
+                        <optgroup label="Almacén">
+                            <option value="floor">🏬 Piso de Almacén (10x10m)</option>
+                            <option value="shelf">🏗️ Estante Pesado (Rack)</option>
+                        </optgroup>
+                    </select>
 
-            <section class="space-y-3">
-                <label class="text-[10px] font-bold text-gray-500">CONTENEDOR</label>
-                <select id="env-type" onchange="setEnvPreset()">
-                    <option value="truck">🚛 Camión Estándar</option>
-                    <option value="cnt20">🚢 Contenedor 20'</option>
-                    <option value="cnt40">🚢 Contenedor 40'</option>
-                    <option value="pallet">🪵 Pallet (1.2x1.0)</option>
-                </select>
-                <div class="grid grid-cols-3 gap-2">
-                    <input type="number" id="env-w" value="240" placeholder="Ancho">
-                    <input type="number" id="env-h" value="260" placeholder="Alto">
-                    <input type="number" id="env-d" value="1200" placeholder="Largo">
-                </div>
-            </section>
+                    <div id="custom-model-controls" class="hidden mt-4 space-y-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                        <div class="file-dropzone p-3 rounded-lg text-center border-dashed" onclick="document.getElementById('multi-file').click()">
+                            <i class="fas fa-cloud-upload-alt text-blue-400 mb-1"></i>
+                            <p class="text-[8px] font-bold uppercase text-white/60">Subir .OBJ + .MTL + Texturas</p>
+                            <input type="file" id="multi-file" multiple class="hidden" onchange="handleFiles(this.files)">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="text-[7px] text-white/40 block">ESCALA</span><input type="number" id="m-scale" value="1.0" step="0.1" class="compact-input text-center" onchange="updateVehicle()"></div>
+                            <div><span class="text-[7px] text-white/40 block">ROTACIÓN</span><input type="number" id="m-rot" value="0" class="compact-input text-center" onchange="updateVehicle()"></div>
+                        </div>
+                        <div class="border-t border-white/10 pt-2">
+                            <span class="text-[8px] font-black text-yellow-500 uppercase block mb-2">Ajuste de Contenedor</span>
+                            <div class="grid grid-cols-3 gap-1 mb-2">
+                                <input type="number" id="c-w" placeholder="AN" class="compact-input text-center" onchange="updateVehicle()">
+                                <input type="number" id="c-h" placeholder="AL" class="compact-input text-center" onchange="updateVehicle()">
+                                <input type="number" id="c-d" placeholder="LA" class="compact-input text-center" onchange="updateVehicle()">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number" id="c-y" placeholder="Altura Y" class="compact-input text-center" onchange="updateVehicle()">
+                                <input type="number" id="c-z" placeholder="Offset Z" class="compact-input text-center" onchange="updateVehicle()">
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-            <section class="space-y-3">
-                <label class="text-[10px] font-bold text-gray-500">DIMENSIONES CAJA (cm)</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <input type="number" id="box-w" value="40">
-                    <input type="number" id="box-h" value="40">
-                    <input type="number" id="box-d" value="60">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="box-mass" value="15" title="Peso Kg">
-                    <input type="number" id="box-qty" value="300" title="Cant. Máxima">
-                </div>
-            </section>
+                <section>
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Inventario</label>
+                        <button onclick="addNewBox()" class="text-blue-400 text-[10px] font-bold hover:text-white transition-colors">
+                            <i class="fas fa-plus-circle mr-1"></i> AÑADIR
+                        </button>
+                    </div>
+                    <div id="box-container" class="space-y-3"></div>
+                </section>
+            </div>
 
-            <section class="space-y-3">
-                <label class="text-[10px] font-bold text-gray-500">APILADO</label>
-                <select id="algo-mode" class="text-yellow-500 font-bold">
-                    <option value="column">📦 Columnar</option>
-                    <option value="brick">🧱 Traba (Ladrillo)</option>
-                    <option value="pinwheel">🌀 Molinillo</option>
-                    <option value="pyramid">🪜 Piramidal</option>
-                </select>
-            </section>
-
-            <button onclick="renderScenario(); closePanelOnMobile();" class="mt-auto bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl text-xs uppercase tracking-wider transition-all">
-                Generar Carga
+            <button onclick="runIAOptimization()" class="mt-4 w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-black text-[9px] tracking-widest uppercase transition-all transform active:scale-95 shadow-lg shadow-blue-500/20">
+                <i class="fas fa-brain mr-2"></i> Calcular Optimización
             </button>
         </div>
     </div>
 
+    <div id="canvas-container" class="fixed inset-0"></div>
+
 <script>
-let scene, camera, renderer, controls, world;
-let meshes = [], bodies = [];
-let isSimulating = false;
-let occupiedBoxes = [];
+let scene, camera, renderer, controls, vehicleMesh, cabinModel;
+let boxesInScene = [];
+let boxTypes = [{ id: 1, w: 40, h: 40, d: 50, qty: 80, weight: 15, color: '#3b82f6', name: 'CARGA A' }];
+const weightLimits = { npr: 5000, tracto: 32000, van: 1200, floor: 50000, shelf: 2000, custom: 45000 };
 
 function init() {
-    const container = document.getElementById('canvas-layer');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x09090b);
+    camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 1, 30000);
+    camera.position.set(1200, 1200, 1200);
 
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 1, 5000);
-    camera.position.set(600, 700, 1000);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización de rendimiento
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = window.innerWidth > 1024; // Sombras solo en PC
-    container.appendChild(renderer.domElement);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.maxDistance = 3000;
 
-    world = new CANNON.World();
-    world.gravity.set(0, -9.82, 0);
-    // Optimización física para móviles
-    world.solver.iterations = 5; 
-
-    setupSceneEssentials();
-    
-    window.addEventListener('resize', onWindowResize);
+    setupEnvironment();
+    renderBoxUI();
+    updateVehicle();
     animate();
-    renderScenario();
 }
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function togglePanel() {
-    const panel = document.getElementById('config-panel');
-    const icon = document.getElementById('cog-icon');
-    panel.classList.toggle('open');
-    icon.classList.toggle('fa-cog');
-    icon.classList.toggle('fa-times');
-}
-
-function closePanelOnMobile() {
-    if(window.innerWidth < 1024) togglePanel();
-}
-
-// --- LOGICA DE CARGA (Simplificada para rendimiento) ---
-function renderScenario() {
-    meshes.forEach(m => scene.remove(m));
-    bodies.forEach(b => world.removeBody(b));
-    meshes = []; bodies = []; occupiedBoxes = [];
-    isSimulating = false;
-
-    const ENV = { w: +document.getElementById('env-w').value, h: +document.getElementById('env-h').value, d: +document.getElementById('env-d').value };
-    const BOX = { w: +document.getElementById('box-w').value, h: +document.getElementById('box-h').value, d: +document.getElementById('box-d').value, mass: +document.getElementById('box-mass').value, max: +document.getElementById('box-qty').value };
-    const ALGO = document.getElementById('algo-mode').value;
-
-    // Contenedor Visual
-    const containerGeo = new THREE.BoxGeometry(ENV.w, ENV.h, ENV.d);
-    const line = new THREE.LineSegments(new THREE.EdgesGeometry(containerGeo), new THREE.LineBasicMaterial({ color: 0x3b82f6 }));
-    line.position.y = ENV.h/2;
-    scene.add(line);
-    meshes.push(line);
-
-    const boxMat = new THREE.MeshStandardMaterial({ color: 0xb48a5f, roughness: 0.8 });
-    let count = 0;
-
-    // Loop de generación optimizado
-    const layers = Math.floor(ENV.h / BOX.h);
-    for (let l = 0; l < layers; l++) {
-        let py = l * BOX.h + BOX.h/2;
-        for (let x = -ENV.w/2 + BOX.w/2; x < ENV.w/2; x += BOX.w) {
-            for (let z = -ENV.d/2 + BOX.d/2; z < ENV.d/2; z += BOX.d) {
-                if(count >= BOX.max) break;
-                
-                // Lógica de algoritmo simple
-                if(ALGO === 'pyramid' && (Math.abs(x) > (ENV.w/2 - l*20) || Math.abs(z) > (ENV.d/2 - l*20))) continue;
-                
-                createBox(x, py, z, BOX.w, BOX.h, BOX.d, BOX.mass, boxMat);
-                count++;
-            }
-        }
-    }
-
-    updateStats(count, BOX, ENV);
-}
-
-function createBox(x, y, z, w, h, d, mass, mat) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w-1, h-1, d-1), mat);
-    mesh.position.set(x, y, z);
-    scene.add(mesh);
-    meshes.push(mesh);
-
-    const body = new CANNON.Body({ mass: mass, shape: new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2)) });
-    body.position.set(x, y, z);
-    body.sleep();
-    world.addBody(body);
-    bodies.push(body);
-    body.initPos = body.position.clone();
-    body.initQuat = body.quaternion.clone();
-}
-
-function updateStats(count, BOX, ENV) {
-    const eff = ((count * (BOX.w * BOX.h * BOX.d)) / (ENV.w * ENV.h * ENV.d) * 100).toFixed(1);
-    document.getElementById('stat-count').innerText = count;
-    document.getElementById('stat-weight').innerText = (count * BOX.mass) + " kg";
-    document.getElementById('stat-eff').innerText = eff + "%";
-    document.getElementById('bar-eff').style.width = eff + "%";
-}
-
-function toggleSim() {
-    isSimulating = !isSimulating;
-    const btn = document.getElementById('btn-sim');
-    if(isSimulating) {
-        bodies.forEach(b => b.wakeUp());
-        btn.classList.add('bg-blue-600');
-    } else {
-        renderScenario(); // Reset rápido
-        btn.classList.remove('bg-blue-600');
-    }
-}
-
-function runAutoAI() {
-    const text = document.getElementById('ai-text');
-    document.getElementById('ai-feedback').classList.remove('hidden');
-    text.innerText = "Analizando dimensiones...";
-    setTimeout(() => {
-        document.getElementById('algo-mode').value = "brick";
-        text.innerText = "Modo Traba aplicado para máxima estabilidad.";
-        renderScenario();
-    }, 600);
-}
-
-function setupSceneEssentials() {
+function setupEnvironment() {
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(500, 1000, 200);
-    scene.add(sun);
-    
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshStandardMaterial({ color: 0x18181b }));
-    floor.rotation.x = -Math.PI/2;
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    mainLight.position.set(500, 1500, 500);
+    mainLight.castShadow = true;
+    scene.add(mainLight);
+
+    const floorGeo = new THREE.CircleGeometry(5000, 64);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.5 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
     scene.add(floor);
 
-    const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
-    groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI/2);
-    world.addBody(groundBody);
+    scene.add(new THREE.GridHelper(10000, 60, 0x334155, 0x1e293b));
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-    if(isSimulating) {
-        world.step(1/60);
-        for(let i=0; i<bodies.length; i++) {
-            if(meshes[i+1]) { // +1 por el contenedor
-                meshes[i+1].position.copy(bodies[i].position);
-                meshes[i+1].quaternion.copy(bodies[i].quaternion);
-            }
+function createWheel(x, y, z) {
+    const wheelGroup = new THREE.Group();
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 10, 16), new THREE.MeshStandardMaterial({ color: 0x111827 }));
+    tire.rotation.z = Math.PI / 2;
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 11, 16), new THREE.MeshStandardMaterial({ color: 0x4b5563 }));
+    rim.rotation.z = Math.PI / 2;
+    wheelGroup.add(tire, rim);
+    wheelGroup.position.set(x, y, z);
+    return wheelGroup;
+}
+
+function updateVehicle() {
+    if(vehicleMesh) scene.remove(vehicleMesh);
+    vehicleMesh = new THREE.Group();
+    
+    const type = document.getElementById('vehicle-select').value;
+    const customUI = document.getElementById('custom-model-controls');
+    customUI.classList.toggle('hidden', type !== 'custom');
+
+    let dims = { w: 240, h: 250, d: 550, yOff: 0, zOff: 0 };
+    
+    if(type === 'npr') { dims = { w: 230, h: 240, d: 500, yOff: 45, zOff: 120 }; }
+    else if(type === 'tracto') { dims = { w: 245, h: 280, d: 1250, yOff: 45, zOff: 200 }; }
+    else if(type === 'van') { dims = { w: 170, h: 160, d: 300, yOff: 30, zOff: 0 }; }
+    else if(type === 'floor') { dims = { w: 1000, h: 400, d: 1000, yOff: 0, zOff: 0 }; }
+    else if(type === 'shelf') { dims = { w: 240, h: 200, d: 120, yOff: 0, zOff: 0 }; }
+    else if(type === 'custom') {
+        dims = {
+            w: parseFloat(document.getElementById('c-w').value) || 240,
+            h: parseFloat(document.getElementById('c-h').value) || 250,
+            d: parseFloat(document.getElementById('c-d').value) || 550,
+            yOff: parseFloat(document.getElementById('c-y').value) || 0,
+            zOff: parseFloat(document.getElementById('c-z').value) || 0
+        };
+        if(cabinModel) {
+            const s = parseFloat(document.getElementById('m-scale').value) || 1;
+            cabinModel.scale.set(s, s, s);
+            cabinModel.rotation.y = (parseFloat(document.getElementById('m-rot').value) || 0) * (Math.PI/180);
+            vehicleMesh.add(cabinModel);
         }
     }
-    controls.update();
-    renderer.render(scene, camera);
+
+    const glassBody = new THREE.Mesh(
+        new THREE.BoxGeometry(dims.w, dims.h, dims.d),
+        new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.1, side: THREE.DoubleSide })
+    );
+    glassBody.position.set(0, dims.yOff + dims.h/2, dims.zOff);
+    vehicleMesh.add(glassBody);
+
+    if (['npr', 'tracto', 'van'].includes(type)) {
+        const cabW = dims.w * 0.9, cabH = dims.h * 0.7, cabD = 80;
+        const cabina = new THREE.Mesh(new THREE.BoxGeometry(cabW, cabH, cabD), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+        cabina.position.set(0, cabH/2, dims.zOff - dims.d/2 - cabD/2);
+        vehicleMesh.add(cabina);
+        vehicleMesh.add(createWheel(-dims.w/2, 10, dims.zOff - dims.d/3));
+        vehicleMesh.add(createWheel(dims.w/2, 10, dims.zOff - dims.d/3));
+        vehicleMesh.add(createWheel(-dims.w/2, 10, dims.zOff + dims.d/3));
+        vehicleMesh.add(createWheel(dims.w/2, 10, dims.zOff + dims.d/3));
+    }
+
+    scene.add(vehicleMesh);
+    window.vDims = dims;
 }
 
-function setEnvPreset() {
-    const type = document.getElementById('env-type').value;
-    const w = document.getElementById('env-w'), h = document.getElementById('env-h'), d = document.getElementById('env-d');
-    if(type === 'truck') { w.value=240; h.value=260; d.value=1200; }
-    if(type === 'cnt20') { w.value=235; h.value=239; d.value=590; }
-    if(type === 'cnt40') { w.value=235; h.value=269; d.value=1203; }
-    if(type === 'pallet') { w.value=120; h.value=160; d.value=100; }
+async function handleFiles(files) {
+    const fileList = Array.from(files);
+    const objFile = fileList.find(f => f.name.toLowerCase().endsWith('.obj'));
+    const mtlFile = fileList.find(f => f.name.toLowerCase().endsWith('.mtl'));
+    const fbxFile = fileList.find(f => f.name.toLowerCase().endsWith('.fbx'));
+    const textureFiles = fileList.filter(f => /\.(jpg|jpeg|png)$/i.test(f.name));
+
+    const loadingManager = new THREE.LoadingManager();
+    loadingManager.setURLModifier((url) => {
+        const fileName = url.split('/').pop();
+        const file = textureFiles.find(f => f.name === fileName);
+        if (file) return URL.createObjectURL(file);
+        return url;
+    });
+
+    const processModel = (obj) => { cabinModel = obj; updateVehicle(); };
+
+    if (fbxFile) {
+        const reader = new FileReader();
+        reader.onload = (e) => processModel(new THREE.FBXLoader(loadingManager).parse(e.target.result));
+        reader.readAsArrayBuffer(fbxFile);
+    } else if (objFile) {
+        const objReader = new FileReader();
+        if (mtlFile) {
+            const mtlReader = new FileReader();
+            mtlReader.onload = (me) => {
+                const materials = new THREE.MTLLoader(loadingManager).parse(me.target.result);
+                materials.preload();
+                objReader.onload = (oe) => {
+                    const loader = new THREE.OBJLoader(loadingManager);
+                    loader.setMaterials(materials);
+                    processModel(loader.parse(oe.target.result));
+                };
+                objReader.readAsText(objFile);
+            };
+            mtlReader.readAsText(mtlFile);
+        } else {
+            objReader.onload = (e) => processModel(new THREE.OBJLoader(loadingManager).parse(e.target.result));
+            objReader.readAsText(objFile);
+        }
+    }
 }
 
+// CEREBRO DE OPTIMIZACIÓN (Mantenido intacto)
+function runIAOptimization() {
+    boxesInScene.forEach(b => scene.remove(b));
+    boxesInScene = [];
+    const L = window.vDims;
+    let x = -L.w/2, y = 0, z = -L.d/2, shelfH = 0, rowD = 0;
+    let totalVol = 0, totalW = 0, totalCount = 0;
+
+    boxTypes.sort((a,b) => (b.w*b.d) - (a.w*a.d)).forEach(type => {
+        const mat = new THREE.MeshStandardMaterial({ color: type.color, roughness: 0.6 });
+        for(let i=0; i < type.qty; i++) {
+            let bw = type.w, bh = type.h, bd = type.d;
+            if ((L.w/2 - x) < bw && (L.w/2 - x) >= bd) [bw, bd] = [bd, bw];
+            if (z + bd > L.d/2) { z = -L.d/2; x += rowD; rowD = 0; }
+            if (x + bw > L.w/2) { x = -L.w/2; z = -L.d/2; y += shelfH; shelfH = 0; rowD = 0; }
+            if (y + bh > L.h) break;
+
+            const box = new THREE.Mesh(new THREE.BoxGeometry(bw-0.5, bh-0.5, bd-0.5), mat);
+            box.position.set(x + bw/2, y + bh/2 + L.yOff, z + bd/2 + L.zOff);
+            box.castShadow = true;
+            scene.add(box);
+            boxesInScene.push(box);
+            z += bd; shelfH = Math.max(shelfH, bh); rowD = Math.max(rowD, bw);
+            totalVol += (bw * bh * bd); totalW += type.weight; totalCount++;
+        }
+    });
+    updateStats(totalVol, totalW, totalCount);
+}
+
+function updateStats(vol, weight, count) {
+    const L = window.vDims;
+    const totalCap = L.w * L.h * L.d;
+    const eff = ((vol / totalCap) * 100).toFixed(1);
+    const avail = ((totalCap - vol) / 1000000).toFixed(2);
+    document.getElementById('stat-eff').innerText = eff + "%";
+    document.getElementById('eff-bar').style.width = eff + "%";
+    document.getElementById('stat-avail').innerText = avail + " m³";
+    document.getElementById('stat-weight').innerText = weight.toLocaleString() + " kg";
+    document.getElementById('stat-count').innerText = count;
+    const limit = weightLimits[document.getElementById('vehicle-select').value];
+    const tag = document.getElementById('overweight-tag');
+    tag.classList.remove('hidden');
+    if(weight > limit) { tag.innerText = "¡Sobrepeso!"; tag.classList.add('warning-pulse'); }
+    else { tag.innerText = "Carga OK"; tag.classList.remove('warning-pulse'); tag.style.background = "#10b981"; }
+}
+
+function renderBoxUI() {
+    const container = document.getElementById('box-container');
+    container.innerHTML = boxTypes.map((box, i) => `
+        <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-all hover:bg-white/10">
+            <div class="flex justify-between items-center mb-2">
+                <input class="bg-transparent text-[9px] font-black text-blue-400 w-2/3 outline-none uppercase" value="${box.name}" onchange="boxTypes[${i}].name=this.value">
+                <button onclick="boxTypes.splice(${i},1);renderBoxUI()" class="text-red-500/50 hover:text-red-500"><i class="fas fa-times-circle"></i></button>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5 mb-2">
+                <div><span class="text-[7px] text-white/30 block">AN</span><input type="number" value="${box.w}" class="compact-input" onchange="boxTypes[${i}].w=Number(this.value)"></div>
+                <div><span class="text-[7px] text-white/30 block">AL</span><input type="number" value="${box.h}" class="compact-input" onchange="boxTypes[${i}].h=Number(this.value)"></div>
+                <div><span class="text-[7px] text-white/30 block">LA</span><input type="number" value="${box.d}" class="compact-input" onchange="boxTypes[${i}].d=Number(this.value)"></div>
+                <div><span class="text-[7px] text-white/30 block">KG</span><input type="number" value="${box.weight}" class="compact-input" onchange="boxTypes[${i}].weight=Number(this.value)"></div>
+            </div>
+            <input type="number" value="${box.qty}" class="compact-input" onchange="boxTypes[${i}].qty=Number(this.value)">
+        </div>
+    `).join('');
+}
+
+function addNewBox() {
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
+    boxTypes.push({ id: Date.now(), w: 40, h: 40, d: 40, qty: 20, weight: 10, color: colors[boxTypes.length % colors.length], name: 'LOTE' });
+    renderBoxUI();
+}
+
+function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 init();
 </script>
 </body>
